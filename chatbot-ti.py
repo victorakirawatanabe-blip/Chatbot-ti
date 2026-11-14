@@ -73,8 +73,11 @@ st.markdown("""
         margin-bottom: 0.25rem;
     }
     .metric-value {
-        font-size: 1.05rem;
+        font-size: 1.02rem;
         font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .rag-card {
         background: rgba(30, 41, 59, 0.04);
@@ -94,14 +97,6 @@ st.markdown("""
         font-size: 0.75rem;
         margin-bottom: 0.4rem;
     }
-    .ticket-card {
-        background: rgba(16, 185, 129, 0.08);
-        border: 1px solid rgba(16, 185, 129, 0.35);
-        border-left: 5px solid #10b981;
-        border-radius: 10px;
-        padding: 1rem 1.2rem;
-        margin-top: 0.5rem;
-    }
     div.stButton > button {
         border-radius: 10px;
         font-weight: 500;
@@ -113,6 +108,29 @@ st.markdown("""
 # --- INICIALIZAÇÃO DE ESTADOS ---
 if "chamados_abertos" not in st.session_state:
     st.session_state.chamados_abertos = []
+
+# --- PERFIS DE PERSONA PRÉ-DEFINIDOS ---
+PERSONAS_PREDEFINIDAS = {
+    "🛡️ Analista N1 Padrão (Objetivo)": (
+        "Você é um Analista de Suporte de TI Nível 1 prestativo, claro e direto ao ponto. "
+        "Forneça instruções passo a passo numeradas e destaque comandos ou botões em negrito."
+    ),
+    "🤝 Instrutor Didático (Para Leigos)": (
+        "Você é um especialista de TI extremamente paciente e acolhedor que atende usuários sem "
+        "conhecimento técnico. Evite jargões complexos, explique onde clicar de forma simples e "
+        "tranquilize o colaborador durante todo o passo a passo."
+    ),
+    "💻 Engenheiro N2 / SysAdmin (Técnico)": (
+        "Você é um Engenheiro de Infraestrutura e Redes Sênior (Nível 2/3). Responda com foco técnico "
+        "aprofundado, detalhando comandos de terminal (PowerShell, CMD, Linux), portas de rede, "
+        "logs de diagnóstico e causas-raiz do incidente."
+    ),
+    "⚡ Triagem Rápida (Ultra-Conciso)": (
+        "Você é um bot de triagem expressa de Service Desk. Responda em no máximo 4 tópicos curtos "
+        "(bullet points) contendo apenas a ação imediata necessária, sem introduções longas."
+    ),
+    "✍️ Personalizado (Escrever manualmente)": ""
+}
 
 # --- BASE DE CONHECIMENTO PADRÃO ---
 DOCUMENTOS_PADRAO = [
@@ -240,7 +258,7 @@ def detectar_e_listar_modelos(chave: str):
     return None, [], "Não foi possível autenticar a chave em nenhum provedor suportado."
 
 # --- CHAMADA UNIVERSAL DE IA ---
-def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunta):
+def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunta, temperatura=0.2):
     chave = chave.strip()
     if provedor == "Google Gemini":
         from google import genai
@@ -249,7 +267,10 @@ def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunt
         resp = client.models.generate_content(
             model=modelo_escolhido,
             contents=pergunta,
-            config=types.GenerateContentConfig(system_instruction=prompt_sistema, temperature=0.2)
+            config=types.GenerateContentConfig(
+                system_instruction=prompt_sistema,
+                temperature=temperatura
+            )
         )
         return resp.text
 
@@ -260,7 +281,7 @@ def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunt
             model=modelo_escolhido,
             max_tokens=1024,
             system=prompt_sistema,
-            temperature=0.2,
+            temperature=temperatura,
             messages=[{"role": "user", "content": pergunta}]
         )
         return resp.content[0].text
@@ -277,7 +298,7 @@ def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunt
         client = OpenAI(api_key=chave, base_url=base_url) if base_url else OpenAI(api_key=chave)
         resp = client.chat.completions.create(
             model=modelo_escolhido,
-            temperature=0.2,
+            temperature=temperatura,
             messages=[
                 {"role": "system", "content": prompt_sistema},
                 {"role": "user", "content": pergunta}
@@ -371,7 +392,6 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                 st.session_state.mensagens[indice_msg]["status_resolucao"] = "chamado_aberto"
                 st.session_state.mensagens[indice_msg]["protocolo_gerado"] = protocolo
 
-                # Adiciona mensagem de confirmação no próprio chat
                 texto_confirmacao = (
                     f"### 🎫 Chamado Registrado com Sucesso!\n"
                     f"Seu atendimento foi escalonado para a equipe de **Suporte Nível 2**.\n\n"
@@ -413,6 +433,43 @@ with st.sidebar:
     else:
         st.info("Cole qualquer API Key acima para liberar os modelos automaticamente.")
 
+    # --- ÁREA DE INSTRUÇÃO E PERSONA DA IA ---
+    st.divider()
+    st.markdown("### 🎭 Persona & Instruções da IA")
+
+    perfil_escolhido = st.selectbox(
+        "Escolha um perfil de comportamento:",
+        options=list(PERSONAS_PREDEFINIDAS.keys())
+    )
+
+    texto_padrao_persona = (
+        PERSONAS_PREDEFINIDAS[perfil_escolhido]
+        if PERSONAS_PREDEFINIDAS[perfil_escolhido]
+        else "Você é um especialista de Suporte Técnico. Responda com clareza, empatia e foco na resolução rápida."
+    )
+
+    instrucao_persona = st.text_area(
+        "Instrução de Sistema (Edite livremente):",
+        value=texto_padrao_persona,
+        height=135,
+        help="Defina como a IA deve se comportar, o tom de voz, regras de formatação ou restrições de atendimento."
+    )
+
+    with st.expander("⚙️ Ajustes Avançados de Comportamento"):
+        temperatura_ia = st.slider(
+            "Criatividade / Temperatura",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.2,
+            step=0.1,
+            help="Valores baixos (0.0 a 0.3) deixam a IA mais fiel aos manuais. Valores altos deixam a escrita mais flexível."
+        )
+        restringir_ao_rag = st.checkbox(
+            "Responder estritamente com base nos manuais (RAG)",
+            value=True,
+            help="Se desmarcado, a IA poderá usar seu conhecimento geral de TI quando não achar a resposta nos manuais da empresa."
+        )
+
     st.divider()
     st.markdown("### 🎫 Chamados Abertos")
     if not st.session_state.chamados_abertos:
@@ -446,24 +503,27 @@ st.markdown("""
 <div class="hero-banner">
     <div>
         <div class="hero-title">🛡️ Central Inteligente de Suporte de TI</div>
-        <div class="hero-subtitle">Diagnóstico rápido Nível 1 com RAG e abertura integrada de chamados Nível 2</div>
+        <div class="hero-subtitle">Diagnóstico Nível 1 com Persona customizável, busca RAG e escalonamento Nível 2</div>
     </div>
     <div class="hero-badge">SLA Nível 1 • Ramal 4040</div>
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    status_prov = f"🟢 {provedor_detectado}" if provedor_detectado else "🟡 Aguardando Chave"
+    status_prov = f"🟢 {provedor_detectado}" if provedor_detectado else "🟡 Aguardando Key"
     st.markdown(f'<div class="metric-card"><div class="metric-label">Provedor</div><div class="metric-value">{status_prov}</div></div>', unsafe_allow_html=True)
 with col2:
-    status_mod = modelo_selecionado if modelo_selecionado else "Nenhum selecionado"
+    status_mod = modelo_selecionado if modelo_selecionado else "Nenhum"
     st.markdown(f'<div class="metric-card"><div class="metric-label">Modelo IA</div><div class="metric-value">🤖 {status_mod}</div></div>', unsafe_allow_html=True)
 with col3:
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Base RAG Indexada</div><div class="metric-value">📚 {len(todos_os_chunks)} seções</div></div>', unsafe_allow_html=True)
+    nome_curto_persona = perfil_escolhido.split("(")[0].strip()
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Persona Ativa</div><div class="metric-value">{nome_curto_persona}</div></div>', unsafe_allow_html=True)
 with col4:
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Base RAG</div><div class="metric-value">📚 {len(todos_os_chunks)} seções</div></div>', unsafe_allow_html=True)
+with col5:
     qtd_tickets = len(st.session_state.chamados_abertos)
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Chamados na Sessão</div><div class="metric-value">🎫 {qtd_tickets} aberto(s)</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Chamados</div><div class="metric-value">🎫 {qtd_tickets} aberto(s)</div></div>', unsafe_allow_html=True)
 
 st.write("")
 
@@ -489,7 +549,7 @@ if "mensagens" not in st.session_state:
     st.session_state.mensagens = [
         {
             "role": "assistant",
-            "content": "Olá! Sou o assistente técnico do **Service Desk**. Escolha um dos atalhos acima ou descreva seu problema. Se minhas instruções não resolverem, abrirei um chamado para você na hora!"
+            "content": "Olá! Sou o assistente técnico do **Service Desk**. Você pode ajustar minha **Persona e Instruções** na barra lateral a qualquer momento. Como posso ajudar?"
         }
     ]
 
@@ -498,7 +558,6 @@ for idx, msg in enumerate(st.session_state.mensagens):
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
-        # Se for uma mensagem de confirmação de chamado, mostra botão para baixar o TXT do ticket
         if msg.get("is_ticket") and "dados_chamado" in msg:
             ch = msg["dados_chamado"]
             conteudo_txt = (
@@ -520,7 +579,6 @@ for idx, msg in enumerate(st.session_state.mensagens):
                 key=f"dl_{ch['protocolo']}_{idx}"
             )
 
-        # Exibe fontes consultadas pelo RAG
         if "fontes" in msg:
             with st.expander("🔍 Fontes da Base de Conhecimento utilizadas nesta resposta"):
                 for f in msg["fontes"]:
@@ -533,7 +591,6 @@ for idx, msg in enumerate(st.session_state.mensagens):
                         unsafe_allow_html=True
                     )
 
-        # Exibe botões de Resolução / Abertura de Chamado após respostas técnicas da IA
         if msg.get("avaliavel"):
             status_res = msg.get("status_resolucao")
             if status_res == "resolvido":
@@ -568,24 +625,41 @@ if pergunta_usuario:
         st.stop()
 
     with st.chat_message("assistant", avatar="🛡️"):
-        with st.spinner(f"Consultando documentação técnica com {modelo_selecionado}..."):
+        with st.spinner(f"Respondendo como '{nome_curto_persona}' via {modelo_selecionado}..."):
             try:
                 fontes_recuperadas = buscar_contexto_local(
                     pergunta_usuario, todos_os_chunks, top_k=top_k_slider
                 )
                 contexto_formatado = "\n\n---\n\n".join([f["trecho"] for f in fontes_recuperadas])
 
+                # Regra de uso estrito ou híbrido do RAG
+                if restringir_ao_rag:
+                    regra_rag = (
+                        "Responda à dúvida do colaborador baseando-se EXCLUSIVAMENTE nos manuais técnicos "
+                        "fornecidos no CONTEXTO abaixo. Se a resposta não estiver no contexto, informe "
+                        "educadamente que o procedimento não consta na base interna e oriente o usuário a clicar "
+                        "no botão 'Não, abrir chamado de TI' logo abaixo da mensagem."
+                    )
+                else:
+                    regra_rag = (
+                        "Priorize as informações fornecidas no CONTEXTO abaixo. Caso o procedimento exato não "
+                        "esteja nos manuais internos, utilize seu conhecimento técnico de TI para sugerir um "
+                        "diagnóstico seguro e lembre o usuário de que ele pode clicar em 'Não, abrir chamado de TI' se precisar."
+                    )
+
                 prompt_sistema = (
-                    "Você é um Analista de Suporte de TI Nível 1 prestativo, claro e objetivo. "
-                    "Responda à dúvida do colaborador baseando-se EXCLUSIVAMENTE nos manuais técnicos "
-                    "fornecidos no CONTEXTO abaixo. Use listas numeradas ou marcadores em negrito para "
-                    "facilitar a leitura do passo a passo. Ao final, diga que, caso o procedimento não "
-                    "resolva, ele pode clicar no botão 'Não, abrir chamado de TI' logo abaixo da mensagem.\n\n"
-                    f"CONTEXTO DOS MANUAIS DE TI:\n{contexto_formatado}"
+                    f"### SUA PERSONA E INSTRUÇÕES DE COMPORTAMENTO:\n{instrucao_persona}\n\n"
+                    f"### REGRAS DE CONSULTA À BASE:\n{regra_rag}\n\n"
+                    f"### CONTEXTO DOS MANUAIS DE TI:\n{contexto_formatado}"
                 )
 
                 texto_resposta = gerar_resposta_ia(
-                    provedor_detectado, api_key, modelo_selecionado, prompt_sistema, pergunta_usuario
+                    provedor=provedor_detectado,
+                    chave=api_key,
+                    modelo_escolhido=modelo_selecionado,
+                    prompt_sistema=prompt_sistema,
+                    pergunta=pergunta_usuario,
+                    temperatura=temperatura_ia
                 )
 
                 st.session_state.mensagens.append({
