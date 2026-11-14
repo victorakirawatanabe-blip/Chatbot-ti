@@ -9,141 +9,277 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Service Desk AI | Enterprise Portal",
-    page_icon="🛡️",
+    page_title="Dashdark X | Service Desk AI",
+    page_icon="🟣",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CSS MODERNO (FONTE INTER, GLASSMORPHISM E LIMPEZA DE UI) ---
+# --- CSS TEMA DASHDARK X ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+    /* Variáveis de Cor Dashdark X */
+    :root {
+        --bg-main: #081028;
+        --bg-card: #0B1739;
+        --bg-card-hover: #0F1F4C;
+        --border-color: #1B254B;
+        --text-primary: #FFFFFF;
+        --text-secondary: #AEB9E1;
+        --accent-purple: #CB3CFF;
+        --accent-indigo: #7F25FB;
+        --accent-cyan: #00C2FF;
+        --badge-green-bg: rgba(5, 193, 104, 0.18);
+        --badge-green-text: #14CA74;
+        --badge-red-bg: rgba(255, 90, 101, 0.18);
+        --badge-red-text: #FF5A65;
     }
 
-    /* Limpeza de elementos padrão do Streamlit */
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        color: var(--text-primary);
+    }
+
+    /* Fundo Principal e Barra Lateral */
+    .stApp {
+        background-color: var(--bg-main) !important;
+    }
+    section[data-testid="stSidebar"] {
+        background-color: var(--bg-main) !important;
+        border-right: 1px solid var(--border-color) !important;
+    }
+
+    /* Limpeza de Topo e Rodapé Nativo */
     header[data-testid="stHeader"] {
-        background: transparent;
+        background: transparent !important;
     }
     footer {
         visibility: hidden;
     }
     .block-container {
-        padding-top: 1.4rem;
+        padding-top: 1.5rem;
         padding-bottom: 2.5rem;
-        max-width: 1280px;
+        max-width: 1340px;
     }
 
-    /* Hero Banner Compacto SaaS */
-    .saas-header {
-        background: linear-gradient(135deg, #090d16 0%, #172554 55%, #1d4ed8 100%);
-        padding: 1.5rem 2rem;
-        border-radius: 16px;
-        color: #ffffff;
+    /* Logo Dashdark X na Sidebar */
+    .dash-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #FFFFFF;
         margin-bottom: 1.2rem;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.45);
+        padding-left: 0.2rem;
+    }
+    .dash-logo-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #00C2FF 0%, #CB3CFF 100%);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 14px rgba(203, 60, 255, 0.4);
+    }
+
+    /* Item de Menu Estilo Dashdark X (Barra lateral roxa ativa) */
+    .side-nav-active {
+        background: linear-gradient(90deg, rgba(203, 60, 255, 0.16) 0%, rgba(11, 23, 57, 0.0) 100%);
+        border-left: 3px solid #CB3CFF;
+        padding: 0.65rem 0.9rem;
+        border-radius: 0 8px 8px 0;
+        color: #FFFFFF;
+        font-weight: 600;
+        font-size: 0.88rem;
+        margin-bottom: 0.8rem;
+    }
+
+    /* Topbar Estilo "Welcome back, John" */
+    .dash-topbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
         gap: 1rem;
     }
-    .saas-title {
-        font-size: 1.55rem;
-        font-weight: 800;
-        margin: 0 0 0.25rem 0;
-        letter-spacing: -0.025em;
+    .dash-welcome-title {
+        font-size: 1.65rem;
+        font-weight: 700;
+        color: #FFFFFF;
+        margin: 0 0 0.2rem 0;
+        letter-spacing: -0.02em;
     }
-    .saas-subtitle {
-        font-size: 0.9rem;
-        color: #cbd5e1;
+    .dash-welcome-sub {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
         margin: 0;
-        font-weight: 400;
     }
-    .saas-badges {
+    .dash-top-actions {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.75rem;
         align-items: center;
     }
-    .badge-pill {
-        background: rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(10px);
-        padding: 0.4rem 0.85rem;
-        border-radius: 999px;
-        font-size: 0.78rem;
+    .btn-dark-ghost {
+        background: #0B1739;
+        border: 1px solid #1B254B;
+        color: #AEB9E1;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
         font-weight: 600;
-        color: #f1f5f9;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .btn-neon-purple {
+        background: linear-gradient(90deg, #CB3CFF 0%, #7F25FB 100%);
+        color: #FFFFFF;
+        padding: 0.5rem 1.1rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(203, 60, 255, 0.35);
     }
 
-    /* Cards de KPI Superiores */
-    .kpi-card {
-        background: rgba(148, 163, 184, 0.06);
-        border: 1px solid rgba(148, 163, 184, 0.18);
+    /* 4 Cards Superiores Idênticos à Imagem */
+    .dash-kpi-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
         border-radius: 12px;
-        padding: 0.8rem 1.1rem;
+        padding: 1.15rem 1.25rem;
         transition: all 0.2s ease;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
     }
-    .kpi-card:hover {
-        border-color: #3b82f6;
+    .dash-kpi-card:hover {
+        border-color: #CB3CFF;
         transform: translateY(-2px);
     }
-    .kpi-label {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: #64748b;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
+    .dash-kpi-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-bottom: 0.65rem;
     }
-    .kpi-value {
-        font-size: 0.96rem;
+    .dash-kpi-body {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+    .dash-kpi-number {
+        font-size: 1.55rem;
         font-weight: 700;
+        color: #FFFFFF;
+        letter-spacing: -0.02em;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-
-    /* Balões de Chat Estilizados */
-    div[data-testid="stChatMessage"] {
-        background-color: rgba(148, 163, 184, 0.05);
-        border: 1px solid rgba(148, 163, 184, 0.14);
-        border-radius: 14px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 0.8rem;
+    .dash-badge-up {
+        background: var(--badge-green-bg);
+        color: var(--badge-green-text);
+        border: 1px solid rgba(20, 202, 116, 0.3);
+        padding: 0.15rem 0.45rem;
+        border-radius: 5px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .dash-badge-down {
+        background: var(--badge-red-bg);
+        color: var(--badge-red-text);
+        border: 1px solid rgba(255, 90, 101, 0.3);
+        padding: 0.15rem 0.45rem;
+        border-radius: 5px;
+        font-size: 0.7rem;
+        font-weight: 600;
     }
 
-    /* Cards de Fontes RAG com Barra Visual */
-    .rag-source-box {
-        background: rgba(15, 23, 42, 0.04);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        border-left: 4px solid #2563eb;
+    /* Painéis Internos e Containers */
+    .dash-panel {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Balões de Mensagem do Chat */
+    div[data-testid="stChatMessage"] {
+        background-color: #0B1739 !important;
+        border: 1px solid #1B254B !important;
+        border-radius: 12px !important;
+        padding: 1rem 1.25rem !important;
+        margin-bottom: 0.85rem !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Inputs e TextAreas no estilo Dashdark */
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="textarea"] > div {
+        background-color: #0B1739 !important;
+        border-color: #1B254B !important;
+        color: #FFFFFF !important;
+        border-radius: 8px !important;
+    }
+
+    /* Botões Primários com Gradiente Roxo Neon (#CB3CFF -> #7F25FB) */
+    div.stButton > button[kind="primary"] {
+        background: linear-gradient(90deg, #CB3CFF 0%, #7F25FB 100%) !important;
+        border: none !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 14px rgba(203, 60, 255, 0.35) !important;
+    }
+    div.stButton > button[kind="secondary"] {
+        background-color: #0B1739 !important;
+        border: 1px solid #1B254B !important;
+        color: #AEB9E1 !important;
+        border-radius: 8px !important;
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        border-color: #CB3CFF !important;
+        color: #FFFFFF !important;
+    }
+
+    /* Barras de Relevância RAG com Gradiente Ciano -> Roxo */
+    .rag-box-dark {
+        background: #081028;
+        border: 1px solid #1B254B;
+        border-left: 3px solid #CB3CFF;
         border-radius: 10px;
         padding: 0.85rem 1rem;
         margin-bottom: 0.65rem;
-        font-size: 0.86rem;
+        font-size: 0.85rem;
+        color: #AEB9E1;
     }
-    .rag-bar-bg {
-        background: rgba(148, 163, 184, 0.25);
+    .rag-progress-bg {
+        background: #1B254B;
         height: 6px;
         border-radius: 999px;
         overflow: hidden;
-        margin: 0.35rem 0 0.6rem 0;
+        margin: 0.4rem 0 0.65rem 0;
     }
-    .rag-bar-fill {
+    .rag-progress-fill {
         height: 100%;
         border-radius: 999px;
+        background: linear-gradient(90deg, #00C2FF 0%, #CB3CFF 100%);
     }
 
-    /* Estilização das Abas (st.tabs) */
+    /* Abas (st.tabs) com sublinhado Roxo Neon */
     button[data-baseweb="tab"] {
+        color: #AEB9E1 !important;
         font-weight: 600 !important;
-        font-size: 0.95rem !important;
-        padding: 0.6rem 1.1rem !important;
+        font-size: 0.92rem !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: #FFFFFF !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -152,38 +288,41 @@ st.markdown("""
 if "chamados_abertos" not in st.session_state:
     st.session_state.chamados_abertos = []
 
+if "resolvidos_n1" not in st.session_state:
+    st.session_state.resolvidos_n1 = 0
+
 if "mensagens" not in st.session_state:
     st.session_state.mensagens = [
         {
             "role": "assistant",
             "content": (
-                "Olá! Bem-vindo à **Central Inteligente de Service Desk**. "
-                "Clique em uma das pílulas de atalho acima ou descreva seu incidente técnico abaixo."
+                "Olá! Bem-vindo ao **Dashdark X Service Desk**. "
+                "Selecione uma das pílulas de incidente rápido acima ou digite sua dúvida técnica abaixo."
             )
         }
     ]
 
 # --- PERFIS DE PERSONA PRÉ-DEFINIDOS ---
 PERSONAS_PREDEFINIDAS = {
-    "🛡️ Analista N1 Padrão (Objetivo)": (
+    "🛡️ Analista N1 Padrão": (
         "Você é um Analista de Suporte de TI Nível 1 prestativo, claro e direto ao ponto. "
         "Forneça instruções passo a passo numeradas e destaque comandos ou botões em negrito."
     ),
-    "🤝 Instrutor Didático (Para Leigos)": (
+    "🤝 Instrutor Didático (Leigos)": (
         "Você é um especialista de TI extremamente paciente e acolhedor que atende usuários sem "
         "conhecimento técnico. Evite jargões complexos, explique onde clicar de forma simples e "
         "tranquilize o colaborador durante todo o passo a passo."
     ),
-    "💻 Engenheiro N2 / SysAdmin (Técnico)": (
+    "💻 Engenheiro N2 / SysAdmin": (
         "Você é um Engenheiro de Infraestrutura e Redes Sênior (Nível 2/3). Responda com foco técnico "
         "aprofundado, detalhando comandos de terminal (PowerShell, CMD, Linux), portas de rede, "
         "logs de diagnóstico e causas-raiz do incidente."
     ),
-    "⚡ Triagem Rápida (Ultra-Conciso)": (
+    "⚡ Triagem Rápida": (
         "Você é um bot de triagem expressa de Service Desk. Responda em no máximo 4 tópicos curtos "
         "(bullet points) contendo apenas a ação imediata necessária, sem introduções longas."
     ),
-    "✍️ Personalizado (Escrever manualmente)": ""
+    "✍️ Personalizado": ""
 }
 
 # --- BASE DE CONHECIMENTO PADRÃO ---
@@ -392,35 +531,34 @@ def buscar_contexto_local(pergunta, lista_textos, top_k=3):
         for idx in melhores_indices
     ]
 
-# --- FUNÇÃO AUXILIAR PARA RENDERIZAR FONTES RAG COM BARRA DE PROGRESSO ---
+# --- RENDERIZAR FONTES RAG COM ESTILO DASHDARK X ---
 def renderizar_fontes_rag(fontes):
     for f in fontes:
-        pct = min(max(int(f["score"] * 100), 5), 100)
-        cor_barra = "#10b981" if pct >= 35 else ("#f59e0b" if pct >= 18 else "#64748b")
+        pct = min(max(int(f["score"] * 100), 6), 100)
         st.markdown(
-            f'<div class="rag-source-box">'
-            f'<div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.78rem; color:#475569;">'
-            f'<span>TRECHO RECUPERADO</span><span>Relevância: {pct}%</span>'
+            f'<div class="rag-box-dark">'
+            f'<div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.76rem; color:#FFFFFF;">'
+            f'<span>⚡ DOCUMENTO RECUPERADO</span><span style="color:#00C2FF;">{pct}% Match</span>'
             f'</div>'
-            f'<div class="rag-bar-bg"><div class="rag-bar-fill" style="width:{pct}%; background:{cor_barra};"></div></div>'
+            f'<div class="rag-progress-bg"><div class="rag-progress-fill" style="width:{pct}%;"></div></div>'
             f'<div style="white-space:pre-wrap;">{f["trecho"]}</div>'
             f'</div>',
             unsafe_allow_html=True
         )
 
 # --- MODAL DE ABERTURA DE CHAMADO (GLPI / NÍVEL 2) ---
-@st.dialog("🎫 Abrir Chamado para Suporte Nível 2")
+@st.dialog("🎫 Create Ticket • Suporte Nível 2")
 def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
-    st.caption("Preencha os campos abaixo para escalonar o incidente diretamente para a fila Nível 2 do GLPI.")
+    st.caption("Escalone este incidente para a fila Nível 2 do GLPI com o histórico anexado.")
 
     with st.form(f"form_chamado_{indice_msg}"):
         col_a, col_b = st.columns(2)
         with col_a:
-            nome_solicitante = st.text_input("Nome / Matrícula *", placeholder="Ex: Victor Akira (Mat. 4520)")
+            nome_solicitante = st.text_input("Solicitante / Matrícula *", placeholder="Ex: Victor Akira (Mat. 4520)")
             setor = st.selectbox("Setor *", ["TI / Desenvolvimento", "Financeiro", "RH", "Comercial", "Operações", "Outro"])
         with col_b:
-            patrimonio = st.text_input("Patrimônio / Hostname", placeholder="Ex: NB-SOR-0142 ou N/A")
-            prioridade = st.selectbox("Urgência *", ["Média - Impacto parcial", "Alta - Trabalho parado", "Baixa - Dúvida / Solicitação"])
+            patrimonio = st.text_input("Patrimônio / Hostname", placeholder="Ex: NB-SOR-0142")
+            prioridade = st.selectbox("Prioridade *", ["Média - Impacto parcial", "Alta - Trabalho parado", "Baixa - Solicitação"])
 
         categoria = st.selectbox(
             "Categoria do Incidente",
@@ -428,19 +566,19 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
         )
 
         descricao_adicional = st.text_area(
-            "Histórico Técnico Anexado:",
+            "Logs e Diagnóstico Prévio:",
             value=(
-                f"Dúvida inicial do usuário:\n{problema_relatado}\n\n"
-                f"Procedimento já orientado pelo Chatbot N1:\n{orientacao_ia[:350]}..."
+                f"Incidente relatado:\n{problema_relatado}\n\n"
+                f"Triagem realizada pelo Chatbot N1:\n{orientacao_ia[:350]}..."
             ),
-            height=140
+            height=135
         )
 
-        confirmar = st.form_submit_button("🚀 Registrar Chamado no GLPI", use_container_width=True, type="primary")
+        confirmar = st.form_submit_button("🚀 Create Report / Abrir Chamado", use_container_width=True, type="primary")
 
         if confirmar:
             if not nome_solicitante.strip():
-                st.error("Por favor, informe seu Nome ou Matrícula.")
+                st.error("Informe o nome ou matrícula do solicitante.")
             else:
                 protocolo = f"INC-{datetime.now().strftime('%Y%m')}-{random.randint(1000, 9999)}"
                 horario = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -455,7 +593,7 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                     "Categoria": categoria,
                     "Problema Original": problema_relatado,
                     "Descrição Completa": descricao_adicional,
-                    "Status": "Aberto (Fila N2)"
+                    "Status": "Open • N2 Queue"
                 }
 
                 st.session_state.chamados_abertos.append(novo_chamado)
@@ -463,12 +601,12 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                 st.session_state.mensagens[indice_msg]["protocolo_gerado"] = protocolo
 
                 texto_confirmacao = (
-                    f"### 🎫 Chamado `{protocolo}` Registrado!\n"
-                    f"Seu atendimento foi escalonado para a equipe de **Suporte Nível 2**.\n\n"
+                    f"### 🎫 Ticket `{protocolo}` Registrado!\n"
+                    f"Seu atendimento foi encaminhado para a fila **Suporte Nível 2**.\n\n"
                     f"- **Solicitante:** {nome_solicitante} ({setor})\n"
                     f"- **Categoria:** {categoria} | **Prioridade:** {prioridade}\n"
-                    f"- **Data/Hora:** {horario}\n\n"
-                    f"*Você também pode acompanhar ou exportar seus tickets na aba **🎫 Fila de Chamados (GLPI)** no topo da página.*"
+                    f"- **Horário:** {horario}\n\n"
+                    f"*Consulte a aba **🎫 Reports & Tickets** para exportar o relatório completo.*"
                 )
                 st.session_state.mensagens.append({
                     "role": "assistant",
@@ -476,39 +614,47 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                     "is_ticket": True,
                     "dados_chamado": novo_chamado
                 })
-                st.toast(f"Chamado {protocolo} criado na fila N2!", icon="🎫")
+                st.toast(f"Ticket {protocolo} registrado!", icon="🟣")
                 st.rerun()
 
-# --- BARRA LATERAL ENXUTA E MODERNA ---
+# --- BARRA LATERAL ESTILO DASHDARK X ---
 with st.sidebar:
-    st.markdown("### 🛡️ Painel de Controle")
+    st.markdown("""
+    <div class="dash-logo">
+        <div class="dash-logo-icon">✦</div>
+        <span>Dashdark X</span>
+    </div>
+    """, unsafe_allow_html=True)
+
     api_key = st.text_input(
-        "🔑 Chave de API Universal",
+        "🔍 API Key (Universal)",
         type="password",
-        placeholder="Cole sua key (AIza, sk-, gsk_...)"
+        placeholder="Search or paste API key..."
     )
 
     provedor_detectado = None
     modelo_selecionado = None
 
     if api_key:
-        with st.spinner("Validando credencial..."):
+        with st.spinner("Autenticando chave..."):
             provedor_detectado, modelos_disponiveis, erro = detectar_e_listar_modelos(api_key)
 
         if erro:
             st.error(erro)
         elif provedor_detectado and modelos_disponiveis:
-            st.success(f"Provedor: **{provedor_detectado}**", icon="✅")
-            modelo_selecionado = st.selectbox("🧠 Modelo Ativo:", options=modelos_disponiveis)
+            st.markdown(f'<div class="side-nav-active">🟣 {provedor_detectado} Ativo</div>', unsafe_allow_html=True)
+            modelo_selecionado = st.selectbox("🧠 Modelo Selecionado", options=modelos_disponiveis)
     else:
-        st.info("Cole qualquer API Key acima para liberar os modelos automaticamente.")
+        st.markdown('<div class="side-nav-active">🏠 Dashboard • Service Desk</div>', unsafe_allow_html=True)
+        st.caption("Insira qualquer chave (Gemini, OpenAI, Groq, Claude) para listar as IAs.")
 
     st.divider()
-    st.markdown("### 🎭 Persona do Assistente")
+    st.markdown("##### 🎭 Persona & Behavior")
 
     perfil_escolhido = st.selectbox(
-        "Perfil de atendimento:",
-        options=list(PERSONAS_PREDEFINIDAS.keys())
+        "Perfil do Agente",
+        options=list(PERSONAS_PREDEFINIDAS.keys()),
+        label_visibility="collapsed"
     )
 
     texto_padrao_persona = (
@@ -517,74 +663,109 @@ with st.sidebar:
         else "Você é um especialista de Suporte Técnico. Responda com clareza, empatia e foco na resolução rápida."
     )
 
-    # Popover flutuante para manter a sidebar limpa
-    with st.popover("⚙️ Personalizar Instruções & RAG", use_container_width=True):
+    with st.popover("⚙️ Configurar System Prompt", use_container_width=True):
         instrucao_persona = st.text_area(
-            "System Prompt (Instrução da Persona):",
+            "Instrução de Comportamento (Persona):",
             value=texto_padrao_persona,
             height=130
         )
-        temperatura_ia = st.slider("Criatividade (Temperatura)", 0.0, 1.0, 0.2, 0.1)
-        top_k_slider = st.slider("Trechos consultados no RAG (Top-K)", 1, 5, 2)
-        restringir_ao_rag = st.checkbox("Restringir 100% aos manuais (RAG)", value=True)
+        temperatura_ia = st.slider("Temperatura", 0.0, 1.0, 0.2, 0.1)
+        top_k_slider = st.slider("Documentos RAG (Top-K)", 1, 5, 2)
+        restringir_ao_rag = st.checkbox("Restringir estritamente ao RAG", value=True)
 
     st.divider()
-    st.markdown("### 📤 Upload Rápido de Manuais")
+    st.markdown("##### 📂 Knowledge Base Upload")
     arquivos_enviados = st.file_uploader(
-        "Anexar arquivos (.txt ou .md)",
+        "Anexar manuais (.txt, .md)",
         type=["txt", "md"],
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        label_visibility="collapsed"
     )
 
     todos_os_chunks = preparar_documentos(DOCUMENTOS_PADRAO, arquivos_enviados)
 
     st.divider()
-    if st.button("🗑️ Limpar Sessão de Chat", use_container_width=True):
+    if st.button("🗑️ Reset Session", use_container_width=True):
         st.session_state.mensagens = []
-        st.toast("Histórico de conversa reiniciado!", icon="🧹")
+        st.toast("Sessão reiniciada!", icon="🟣")
         st.rerun()
 
-# --- HERO BANNER E KPI CARDS ---
-st.markdown("""
-<div class="saas-header">
+# --- TOPBAR ESTILO "Welcome back, John" DA IMAGEM ---
+st.markdown(f"""
+<div class="dash-topbar">
     <div>
-        <div class="saas-title">🛡️ Service Desk AI • Central de Suporte Técnico</div>
-        <div class="saas-subtitle">Diagnóstico inteligente com RAG local, persona dinâmica e integração Nível 2 (GLPI)</div>
+        <div class="dash-welcome-title">Welcome back, Victor</div>
+        <div class="dash-welcome-sub">Monitore métricas de suporte N1, consulte a base RAG e gerencie chamados GLPI.</div>
     </div>
-    <div class="saas-badges">
-        <span class="badge-pill">⚡ SLA Nível 1</span>
-        <span class="badge-pill">📞 Ramal 4040</span>
+    <div class="dash-top-actions">
+        <span class="btn-dark-ghost">SLA Nível 1 • Ramal 4040 ↓</span>
+        <span class="btn-neon-purple">✦ Dashdark AI Active</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-c1, c2, c3, c4, c5 = st.columns(5)
-with c1:
-    status_prov = f"🟢 {provedor_detectado}" if provedor_detectado else "🟡 Sem Chave"
-    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Provedor</div><div class="kpi-value">{status_prov}</div></div>', unsafe_allow_html=True)
-with c2:
-    status_mod = modelo_selecionado if modelo_selecionado else "Aguardando..."
-    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Modelo Ativo</div><div class="kpi-value">🤖 {status_mod}</div></div>', unsafe_allow_html=True)
-with c3:
-    nome_curto_persona = perfil_escolhido.split("(")[0].strip()
-    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Persona</div><div class="kpi-value">{nome_curto_persona}</div></div>', unsafe_allow_html=True)
-with c4:
-    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Base RAG</div><div class="kpi-value">📚 {len(todos_os_chunks)} blocos</div></div>', unsafe_allow_html=True)
-with c5:
-    qtd_tickets = len(st.session_state.chamados_abertos)
-    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Fila Nível 2</div><div class="kpi-value">🎫 {qtd_tickets} ticket(s)</div></div>', unsafe_allow_html=True)
+# --- 4 KPI CARDS SUPERIORES (IDÊNTICOS AO LAYOUT DASHDARK X) ---
+k1, k2, k3, k4 = st.columns(4)
+
+with k1:
+    prov_nome = provedor_detectado if provedor_detectado else "Disconnected"
+    badge_html = '<span class="dash-badge-up">ONLINE ↗</span>' if provedor_detectado else '<span class="dash-badge-down">NO KEY ↘</span>'
+    st.markdown(f"""
+    <div class="dash-kpi-card">
+        <div class="dash-kpi-header"><span>👁️ AI Provider</span><span>•••</span></div>
+        <div class="dash-kpi-body">
+            <div class="dash-kpi-number">{prov_nome}</div>
+            {badge_html}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with k2:
+    st.markdown(f"""
+    <div class="dash-kpi-card">
+        <div class="dash-kpi-header"><span>📚 Knowledge Chunks</span><span>•••</span></div>
+        <div class="dash-kpi-body">
+            <div class="dash-kpi-number">{len(todos_os_chunks)}</div>
+            <span class="dash-badge-up">RAG READY ↗</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with k3:
+    st.markdown(f"""
+    <div class="dash-kpi-card">
+        <div class="dash-kpi-header"><span>✅ Resolved in N1</span><span>•••</span></div>
+        <div class="dash-kpi-body">
+            <div class="dash-kpi-number">{st.session_state.resolvidos_n1}</div>
+            <span class="dash-badge-up">AUTO ↗</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with k4:
+    qtd_t = len(st.session_state.chamados_abertos)
+    badge_t = f'<span class="dash-badge-down">{qtd_t} OPEN ↘</span>' if qtd_t > 0 else '<span class="dash-badge-up">0 QUEUE ↗</span>'
+    st.markdown(f"""
+    <div class="dash-kpi-card">
+        <div class="dash-kpi-header"><span>★ N2 Tickets (GLPI)</span><span>•••</span></div>
+        <div class="dash-kpi-body">
+            <div class="dash-kpi-number">{qtd_t}</div>
+            {badge_t}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.write("")
 
-# --- NAVEGAÇÃO PRINCIPAL EM ABAS (st.tabs) ---
+# --- NAVEGAÇÃO EM ABAS ---
 aba_chat, aba_chamados, aba_rag = st.tabs([
-    "💬 Atendimento Inteligente",
-    f"🎫 Fila de Chamados GLPI ({len(st.session_state.chamados_abertos)})",
-    f"📚 Explorador da Base RAG ({len(todos_os_chunks)})"
+    "🟣 AI Service Desk",
+    f"📊 Reports & Tickets ({len(st.session_state.chamados_abertos)})",
+    f"🗂️ Knowledge Explorer ({len(todos_os_chunks)})"
 ])
 
 # ==========================================================
-# ABA 1: CHAT DE ATENDIMENTO COM PÍLULAS E ST.STATUS
+# ABA 1: CHAT DE SUPORTE E DIAGNÓSTICO
 # ==========================================================
 with aba_chat:
     opcoes_pilulas = [
@@ -595,26 +776,24 @@ with aba_chat:
         "💻 Como instalar o VS Code ou Power BI?"
     ]
 
-    # Componente st.pills para atalhos rápidos modernos
     atalho_selecionado = st.pills(
-        "⚡ Atalhos de Incidentes Frequentes:",
+        "⚡ Quick Incidents:",
         options=opcoes_pilulas,
         selection_mode="single",
-        key="pills_atalho"
+        key="pills_dashdark"
     )
 
-    st.divider()
+    st.write("")
 
-    # Renderização das mensagens do chat
     for idx, msg in enumerate(st.session_state.mensagens):
-        avatar = "🧑‍💻" if msg["role"] == "user" else "🛡️"
+        avatar = "🧑‍💻" if msg["role"] == "user" else "🟣"
         with st.chat_message(msg["role"], avatar=avatar):
             st.markdown(msg["content"])
 
             if msg.get("is_ticket") and "dados_chamado" in msg:
                 ch = msg["dados_chamado"]
                 conteudo_txt = (
-                    f"=== FICHA DE CHAMADO TÉCNICO (GLPI) ===\n"
+                    f"=== DASHDARK X • GLPI TICKET REPORT ===\n"
                     f"Protocolo: {ch['Protocolo']}\n"
                     f"Data/Hora: {ch['Data/Hora']}\n"
                     f"Solicitante: {ch['Solicitante']} | Setor: {ch['Setor']}\n"
@@ -625,7 +804,7 @@ with aba_chat:
                     f"{ch['Descrição Completa']}\n"
                 )
                 st.download_button(
-                    label=f"📥 Baixar Ficha Técnica ({ch['Protocolo']}.txt)",
+                    label=f"📥 Export Ticket ({ch['Protocolo']}.txt)",
                     data=conteudo_txt,
                     file_name=f"{ch['Protocolo']}.txt",
                     mime="text/plain",
@@ -633,33 +812,32 @@ with aba_chat:
                 )
 
             if "fontes" in msg:
-                with st.expander("🔍 Inspecionar trechos consultados na Base de Conhecimento (RAG)"):
+                with st.expander("🔍 View RAG Telemetry & Matched Sources"):
                     renderizar_fontes_rag(msg["fontes"])
 
             if msg.get("avaliavel"):
                 status_res = msg.get("status_resolucao")
                 if status_res == "resolvido":
-                    st.success("✅ Incidente resolvido no Primeiro Nível (N1)!")
+                    st.success("✅ Incidente marcado como resolvido no Nível 1!")
                 elif status_res == "chamado_aberto":
-                    st.info(f"🎫 Escalonado para o Suporte Nível 2 sob o protocolo **{msg.get('protocolo_gerado')}**.")
+                    st.info(f"🎫 Escalonado para fila N2 • Protocolo **{msg.get('protocolo_gerado')}**.")
                 else:
-                    st.caption("**O procedimento acima resolveu o seu problema?**")
+                    st.caption("**O diagnóstico acima solucionou o incidente?**")
                     col_ok, col_ticket, _ = st.columns([1.3, 1.9, 3])
-                    if col_ok.button("✅ Sim, resolvido!", key=f"btn_ok_{idx}", use_container_width=True):
+                    if col_ok.button("✅ Sim, resolvido", key=f"btn_ok_{idx}", use_container_width=True):
                         st.session_state.mensagens[idx]["status_resolucao"] = "resolvido"
-                        st.toast("Ótimo! Atendimento concluído com sucesso.", icon="🎉")
+                        st.session_state.resolvidos_n1 += 1
+                        st.toast("Métrica de resolução N1 atualizada!", icon="✅")
                         st.rerun()
-                    if col_ticket.button("🎫 Não, abrir chamado N2", key=f"btn_ticket_{idx}", type="primary", use_container_width=True):
+                    if col_ticket.button("🎫 Create Ticket (N2)", key=f"btn_ticket_{idx}", type="primary", use_container_width=True):
                         modal_abrir_chamado(
                             indice_msg=idx,
-                            problema_relatado=msg.get("pergunta_origem", "Problema relatado no chat"),
+                            problema_relatado=msg.get("pergunta_origem", "Incidente relatado no chat"),
                             orientacao_ia=msg["content"]
                         )
 
-    # Entrada de texto ou disparo por pílula
-    pergunta_input = st.chat_input("Descreva seu problema técnico ou cole o código de erro aqui...")
+    pergunta_input = st.chat_input("Ask AI Service Desk or paste error log...")
 
-    # Evita loop infinito ao clicar na pílula
     if "ultimo_atalho_usado" not in st.session_state:
         st.session_state.ultimo_atalho_usado = None
 
@@ -676,33 +854,32 @@ with aba_chat:
             st.markdown(pergunta_ativa)
 
         if not api_key or not modelo_selecionado:
-            with st.chat_message("assistant", avatar="🛡️"):
-                st.warning("⚠️ Insira uma **Chave de API válida** no menu lateral esquerdo para liberar o assistente.")
+            with st.chat_message("assistant", avatar="🟣"):
+                st.warning("⚠️ Insira sua **API Key** na barra lateral esquerda para habilitar os modelos.")
             st.stop()
 
-        with st.chat_message("assistant", avatar="🛡️"):
-            # Componente moderno st.status mostrando as etapas em tempo real
-            with st.status("Processando diagnóstico técnico...", expanded=True) as status_box:
+        with st.chat_message("assistant", avatar="🟣"):
+            with st.status("Running RAG Telemetry & AI Inference...", expanded=True) as status_box:
                 try:
-                    st.write("🔎 Vetorizando pergunta e buscando nos manuais de TI (RAG)...")
+                    st.write("🔎 Calculando similaridade de cosseno nos manuais de TI...")
                     fontes_recuperadas = buscar_contexto_local(
                         pergunta_ativa, todos_os_chunks, top_k=top_k_slider
                     )
                     contexto_formatado = "\n\n---\n\n".join([f["trecho"] for f in fontes_recuperadas])
 
-                    st.write(f"🎭 Aplicando persona **{nome_curto_persona}**...")
+                    st.write(f"🎭 Carregando persona **{perfil_escolhido}**...")
                     if restringir_ao_rag:
                         regra_rag = (
                             "Responda à dúvida do colaborador baseando-se EXCLUSIVAMENTE nos manuais técnicos "
                             "fornecidos no CONTEXTO abaixo. Se a resposta não estiver no contexto, informe "
                             "educadamente que o procedimento não consta na base interna e oriente o usuário a clicar "
-                            "no botão 'Não, abrir chamado N2' logo abaixo da mensagem."
+                            "no botão 'Create Ticket (N2)' logo abaixo da mensagem."
                         )
                     else:
                         regra_rag = (
                             "Priorize as informações fornecidas no CONTEXTO abaixo. Caso o procedimento exato não "
                             "esteja nos manuais internos, utilize seu conhecimento técnico de TI para sugerir um "
-                            "diagnóstico seguro e lembre o usuário de que ele pode clicar em 'Não, abrir chamado N2' se precisar."
+                            "diagnóstico seguro e lembre o usuário de que ele pode clicar em 'Create Ticket (N2)' se precisar."
                         )
 
                     prompt_sistema = (
@@ -711,7 +888,7 @@ with aba_chat:
                         f"### CONTEXTO DOS MANUAIS DE TI:\n{contexto_formatado}"
                     )
 
-                    st.write(f"🤖 Gerando solução com **{modelo_selecionado}** ({provedor_detectado})...")
+                    st.write(f"⚡ Executando modelo **{modelo_selecionado}** ({provedor_detectado})...")
                     texto_resposta = gerar_resposta_ia(
                         provedor=provedor_detectado,
                         chave=api_key,
@@ -734,18 +911,19 @@ with aba_chat:
                     st.rerun()
 
                 except Exception as e:
-                    status_box.update(label="❌ Falha na comunicação com a API", state="error", expanded=True)
-                    st.error(f"Erro ao gerar resposta com `{modelo_selecionado}`: {e}")
+                    status_box.update(label="❌ Erro na chamada da API", state="error", expanded=True)
+                    st.error(f"Falha ao consultar `{modelo_selecionado}`: {e}")
 
 # ==========================================================
-# ABA 2: CENTRAL E TABELA DE CHAMADOS (GLPI)
+# ABA 2: RELATÓRIOS E TABELA DE CHAMADOS
 # ==========================================================
 with aba_chamados:
-    st.subheader("🎫 Gestão de Chamados Escalonados (Nível 2)")
-    st.caption("Visualize todos os tickets abertos durante a sessão e exporte a planilha para integração com o GLPI.")
+    st.markdown('<div class="dash-panel">', unsafe_allow_html=True)
+    st.subheader("📊 Reports & N2 Escalated Tickets")
+    st.caption("Histórico de chamados gerados durante a sessão com exportação direta para CSV.")
 
     if not st.session_state.chamados_abertos:
-        st.info("Nenhum chamado foi escalonado ainda. Caso o chatbot não resolva uma dúvida na aba de Atendimento, clique em **'🎫 Não, abrir chamado N2'**.")
+        st.info("Nenhum ticket N2 aberto até o momento. Use o botão **'🎫 Create Ticket (N2)'** abaixo de qualquer resposta no chat.")
     else:
         df_chamados = pd.DataFrame(st.session_state.chamados_abertos)
         st.dataframe(
@@ -756,30 +934,33 @@ with aba_chamados:
 
         csv_bytes = df_chamados.to_csv(index=False).encode("utf-8-sig")
         st.download_button(
-            label="📊 Exportar Fila Completa em CSV (Excel)",
+            label="📥 Export Data (CSV)",
             data=csv_bytes,
-            file_name=f"chamados_glpi_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"dashdark_tickets_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
             type="primary"
         )
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================================
-# ABA 3: EXPLORADOR DA BASE DE CONHECIMENTO (RAG)
+# ABA 3: EXPLORADOR DA BASE RAG
 # ==========================================================
 with aba_rag:
-    st.subheader("📚 Explorador da Base de Conhecimento Indexada")
-    st.caption("Pesquise e inspecione os blocos de documentação que o motor TF-IDF utiliza para fundamentar as respostas.")
+    st.markdown('<div class="dash-panel">', unsafe_allow_html=True)
+    st.subheader("🗂️ Knowledge Base Telemetry")
+    st.caption("Inspecione os blocos de documentação indexados pelo motor vetorial TF-IDF.")
 
-    termo_filtro = st.text_input("🔍 Filtrar blocos por palavra-chave (ex: VPN, senha, VLAN, SQL, impressora):", "")
+    termo_filtro = st.text_input("🔍 Search knowledge chunks (ex: VPN, senha, VLAN, SQL, impressora):", "")
 
     chunks_filtrados = [
         c for c in todos_os_chunks
         if termo_filtro.lower() in c.lower()
     ]
 
-    st.write(f"Exibindo **{len(chunks_filtrados)}** de **{len(todos_os_chunks)}** blocos indexados:")
+    st.write(f"Exibindo **{len(chunks_filtrados)}** de **{len(todos_os_chunks)}** seções:")
 
     for i, texto_bloco in enumerate(chunks_filtrados, 1):
         primeira_linha = texto_bloco.split("\n")[0][:95]
-        with st.expander(f"📄 Bloco #{i} — {primeira_linha}"):
+        with st.expander(f"📄 Chunk #{i} — {primeira_linha}"):
             st.code(texto_bloco, language="markdown")
+    st.markdown('</div>', unsafe_allow_html=True)
