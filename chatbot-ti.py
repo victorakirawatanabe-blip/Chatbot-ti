@@ -2,112 +2,166 @@ import os
 import random
 from datetime import datetime
 import streamlit as st
+import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
-    page_title="Service Desk AI | Suporte & Chamados",
+    page_title="Service Desk AI | Enterprise Portal",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- ESTILIZAÇÃO CSS CUSTOMIZADA ---
+# --- CSS MODERNO (FONTE INTER, GLASSMORPHISM E LIMPEZA DE UI) ---
 st.markdown("""
 <style>
-    .block-container {
-        padding-top: 1.8rem;
-        padding-bottom: 2rem;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
     }
-    .hero-banner {
-        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #2563eb 100%);
-        padding: 1.8rem 2rem;
+
+    /* Limpeza de elementos padrão do Streamlit */
+    header[data-testid="stHeader"] {
+        background: transparent;
+    }
+    footer {
+        visibility: hidden;
+    }
+    .block-container {
+        padding-top: 1.4rem;
+        padding-bottom: 2.5rem;
+        max-width: 1280px;
+    }
+
+    /* Hero Banner Compacto SaaS */
+    .saas-header {
+        background: linear-gradient(135deg, #090d16 0%, #172554 55%, #1d4ed8 100%);
+        padding: 1.5rem 2rem;
         border-radius: 16px;
         color: #ffffff;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 10px 25px -5px rgba(30, 58, 138, 0.35);
+        margin-bottom: 1.2rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.45);
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
-    .hero-title {
-        font-size: 1.75rem;
+    .saas-title {
+        font-size: 1.55rem;
         font-weight: 800;
-        margin: 0 0 0.35rem 0;
-        letter-spacing: -0.02em;
+        margin: 0 0 0.25rem 0;
+        letter-spacing: -0.025em;
     }
-    .hero-subtitle {
-        font-size: 0.95rem;
+    .saas-subtitle {
+        font-size: 0.9rem;
         color: #cbd5e1;
         margin: 0;
+        font-weight: 400;
     }
-    .hero-badge {
-        background: rgba(255, 255, 255, 0.14);
-        backdrop-filter: blur(8px);
-        padding: 0.45rem 0.9rem;
+    .saas-badges {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .badge-pill {
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(10px);
+        padding: 0.4rem 0.85rem;
         border-radius: 999px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
-        color: #e2e8f0;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #f1f5f9;
+        border: 1px solid rgba(255, 255, 255, 0.18);
     }
-    .metric-card {
-        background: rgba(148, 163, 184, 0.08);
-        border: 1px solid rgba(148, 163, 184, 0.22);
+
+    /* Cards de KPI Superiores */
+    .kpi-card {
+        background: rgba(148, 163, 184, 0.06);
+        border: 1px solid rgba(148, 163, 184, 0.18);
         border-radius: 12px;
-        padding: 0.9rem 1.2rem;
-        transition: transform 0.15s ease, border-color 0.15s ease;
+        padding: 0.8rem 1.1rem;
+        transition: all 0.2s ease;
     }
-    .metric-card:hover {
-        transform: translateY(-2px);
+    .kpi-card:hover {
         border-color: #3b82f6;
+        transform: translateY(-2px);
     }
-    .metric-label {
-        font-size: 0.75rem;
+    .kpi-label {
+        font-size: 0.7rem;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.07em;
         color: #64748b;
         font-weight: 700;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.2rem;
     }
-    .metric-value {
-        font-size: 1.02rem;
+    .kpi-value {
+        font-size: 0.96rem;
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .rag-card {
-        background: rgba(30, 41, 59, 0.04);
-        border-left: 4px solid #3b82f6;
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.6rem;
-        font-size: 0.88rem;
+
+    /* Balões de Chat Estilizados */
+    div[data-testid="stChatMessage"] {
+        background-color: rgba(148, 163, 184, 0.05);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 0.8rem;
     }
-    .rag-score {
-        display: inline-block;
-        background: #dbeafe;
-        color: #1e40af;
-        font-weight: 700;
-        padding: 0.15rem 0.55rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        margin-bottom: 0.4rem;
-    }
-    div.stButton > button {
+
+    /* Cards de Fontes RAG com Barra Visual */
+    .rag-source-box {
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-left: 4px solid #2563eb;
         border-radius: 10px;
-        font-weight: 500;
-        transition: all 0.2s ease;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.65rem;
+        font-size: 0.86rem;
+    }
+    .rag-bar-bg {
+        background: rgba(148, 163, 184, 0.25);
+        height: 6px;
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 0.35rem 0 0.6rem 0;
+    }
+    .rag-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+    }
+
+    /* Estilização das Abas (st.tabs) */
+    button[data-baseweb="tab"] {
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        padding: 0.6rem 1.1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- INICIALIZAÇÃO DE ESTADOS ---
+# --- INICIALIZAÇÃO DE ESTADOS DA SESSÃO ---
 if "chamados_abertos" not in st.session_state:
     st.session_state.chamados_abertos = []
+
+if "mensagens" not in st.session_state:
+    st.session_state.mensagens = [
+        {
+            "role": "assistant",
+            "content": (
+                "Olá! Bem-vindo à **Central Inteligente de Service Desk**. "
+                "Clique em uma das pílulas de atalho acima ou descreva seu incidente técnico abaixo."
+            )
+        }
+    ]
 
 # --- PERFIS DE PERSONA PRÉ-DEFINIDOS ---
 PERSONAS_PREDEFINIDAS = {
@@ -338,16 +392,32 @@ def buscar_contexto_local(pergunta, lista_textos, top_k=3):
         for idx in melhores_indices
     ]
 
+# --- FUNÇÃO AUXILIAR PARA RENDERIZAR FONTES RAG COM BARRA DE PROGRESSO ---
+def renderizar_fontes_rag(fontes):
+    for f in fontes:
+        pct = min(max(int(f["score"] * 100), 5), 100)
+        cor_barra = "#10b981" if pct >= 35 else ("#f59e0b" if pct >= 18 else "#64748b")
+        st.markdown(
+            f'<div class="rag-source-box">'
+            f'<div style="display:flex; justify-content:space-between; font-weight:700; font-size:0.78rem; color:#475569;">'
+            f'<span>TRECHO RECUPERADO</span><span>Relevância: {pct}%</span>'
+            f'</div>'
+            f'<div class="rag-bar-bg"><div class="rag-bar-fill" style="width:{pct}%; background:{cor_barra};"></div></div>'
+            f'<div style="white-space:pre-wrap;">{f["trecho"]}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
 # --- MODAL DE ABERTURA DE CHAMADO (GLPI / NÍVEL 2) ---
 @st.dialog("🎫 Abrir Chamado para Suporte Nível 2")
 def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
-    st.caption("Como o autoatendimento não resolveu o incidente, preencha os dados abaixo para escalonar ao time técnico.")
+    st.caption("Preencha os campos abaixo para escalonar o incidente diretamente para a fila Nível 2 do GLPI.")
 
     with st.form(f"form_chamado_{indice_msg}"):
         col_a, col_b = st.columns(2)
         with col_a:
-            nome_solicitante = st.text_input("Nome / Matrícula *", placeholder="Ex: João Silva (Mat. 4520)")
-            setor = st.selectbox("Setor *", ["Financeiro", "TI / Desenvolvimento", "RH", "Comercial", "Operações", "Outro"])
+            nome_solicitante = st.text_input("Nome / Matrícula *", placeholder="Ex: Victor Akira (Mat. 4520)")
+            setor = st.selectbox("Setor *", ["TI / Desenvolvimento", "Financeiro", "RH", "Comercial", "Operações", "Outro"])
         with col_b:
             patrimonio = st.text_input("Patrimônio / Hostname", placeholder="Ex: NB-SOR-0142 ou N/A")
             prioridade = st.selectbox("Urgência *", ["Média - Impacto parcial", "Alta - Trabalho parado", "Baixa - Dúvida / Solicitação"])
@@ -358,15 +428,15 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
         )
 
         descricao_adicional = st.text_area(
-            "Detalhes do problema (pré-preenchido pelo chat):",
+            "Histórico Técnico Anexado:",
             value=(
                 f"Dúvida inicial do usuário:\n{problema_relatado}\n\n"
-                f"Procedimento já tentado via Chatbot N1:\n{orientacao_ia[:350]}..."
+                f"Procedimento já orientado pelo Chatbot N1:\n{orientacao_ia[:350]}..."
             ),
-            height=150
+            height=140
         )
 
-        confirmar = st.form_submit_button("🚀 Registrar Chamado no Service Desk", use_container_width=True, type="primary")
+        confirmar = st.form_submit_button("🚀 Registrar Chamado no GLPI", use_container_width=True, type="primary")
 
         if confirmar:
             if not nome_solicitante.strip():
@@ -376,16 +446,16 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                 horario = datetime.now().strftime("%d/%m/%Y %H:%M")
 
                 novo_chamado = {
-                    "protocolo": protocolo,
-                    "data_hora": horario,
-                    "solicitante": nome_solicitante,
-                    "setor": setor,
-                    "patrimonio": patrimonio or "Não informado",
-                    "prioridade": prioridade,
-                    "categoria": categoria,
-                    "problema_original": problema_relatado,
-                    "descricao": descricao_adicional,
-                    "status": "Aberto - Fila Nível 2"
+                    "Protocolo": protocolo,
+                    "Data/Hora": horario,
+                    "Solicitante": nome_solicitante,
+                    "Setor": setor,
+                    "Patrimônio": patrimonio or "Não informado",
+                    "Prioridade": prioridade,
+                    "Categoria": categoria,
+                    "Problema Original": problema_relatado,
+                    "Descrição Completa": descricao_adicional,
+                    "Status": "Aberto (Fila N2)"
                 }
 
                 st.session_state.chamados_abertos.append(novo_chamado)
@@ -393,13 +463,12 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                 st.session_state.mensagens[indice_msg]["protocolo_gerado"] = protocolo
 
                 texto_confirmacao = (
-                    f"### 🎫 Chamado Registrado com Sucesso!\n"
+                    f"### 🎫 Chamado `{protocolo}` Registrado!\n"
                     f"Seu atendimento foi escalonado para a equipe de **Suporte Nível 2**.\n\n"
-                    f"- **Protocolo:** `{protocolo}`\n"
                     f"- **Solicitante:** {nome_solicitante} ({setor})\n"
                     f"- **Categoria:** {categoria} | **Prioridade:** {prioridade}\n"
                     f"- **Data/Hora:** {horario}\n\n"
-                    f"*Um analista entrará em contato via Teams ou ramal interno em breve.*"
+                    f"*Você também pode acompanhar ou exportar seus tickets na aba **🎫 Fila de Chamados (GLPI)** no topo da página.*"
                 )
                 st.session_state.mensagens.append({
                     "role": "assistant",
@@ -407,9 +476,10 @@ def modal_abrir_chamado(indice_msg, problema_relatado, orientacao_ia):
                     "is_ticket": True,
                     "dados_chamado": novo_chamado
                 })
+                st.toast(f"Chamado {protocolo} criado na fila N2!", icon="🎫")
                 st.rerun()
 
-# --- BARRA LATERAL ---
+# --- BARRA LATERAL ENXUTA E MODERNA ---
 with st.sidebar:
     st.markdown("### 🛡️ Painel de Controle")
     api_key = st.text_input(
@@ -428,17 +498,16 @@ with st.sidebar:
         if erro:
             st.error(erro)
         elif provedor_detectado and modelos_disponiveis:
-            st.success(f"Conectado: **{provedor_detectado}**", icon="✅")
+            st.success(f"Provedor: **{provedor_detectado}**", icon="✅")
             modelo_selecionado = st.selectbox("🧠 Modelo Ativo:", options=modelos_disponiveis)
     else:
         st.info("Cole qualquer API Key acima para liberar os modelos automaticamente.")
 
-    # --- ÁREA DE INSTRUÇÃO E PERSONA DA IA ---
     st.divider()
-    st.markdown("### 🎭 Persona & Instruções da IA")
+    st.markdown("### 🎭 Persona do Assistente")
 
     perfil_escolhido = st.selectbox(
-        "Escolha um perfil de comportamento:",
+        "Perfil de atendimento:",
         options=list(PERSONAS_PREDEFINIDAS.keys())
     )
 
@@ -448,229 +517,269 @@ with st.sidebar:
         else "Você é um especialista de Suporte Técnico. Responda com clareza, empatia e foco na resolução rápida."
     )
 
-    instrucao_persona = st.text_area(
-        "Instrução de Sistema (Edite livremente):",
-        value=texto_padrao_persona,
-        height=135,
-        help="Defina como a IA deve se comportar, o tom de voz, regras de formatação ou restrições de atendimento."
-    )
-
-    with st.expander("⚙️ Ajustes Avançados de Comportamento"):
-        temperatura_ia = st.slider(
-            "Criatividade / Temperatura",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.2,
-            step=0.1,
-            help="Valores baixos (0.0 a 0.3) deixam a IA mais fiel aos manuais. Valores altos deixam a escrita mais flexível."
+    # Popover flutuante para manter a sidebar limpa
+    with st.popover("⚙️ Personalizar Instruções & RAG", use_container_width=True):
+        instrucao_persona = st.text_area(
+            "System Prompt (Instrução da Persona):",
+            value=texto_padrao_persona,
+            height=130
         )
-        restringir_ao_rag = st.checkbox(
-            "Responder estritamente com base nos manuais (RAG)",
-            value=True,
-            help="Se desmarcado, a IA poderá usar seu conhecimento geral de TI quando não achar a resposta nos manuais da empresa."
-        )
+        temperatura_ia = st.slider("Criatividade (Temperatura)", 0.0, 1.0, 0.2, 0.1)
+        top_k_slider = st.slider("Trechos consultados no RAG (Top-K)", 1, 5, 2)
+        restringir_ao_rag = st.checkbox("Restringir 100% aos manuais (RAG)", value=True)
 
     st.divider()
-    st.markdown("### 🎫 Chamados Abertos")
-    if not st.session_state.chamados_abertos:
-        st.caption("Nenhum chamado aberto nesta sessão.")
-    else:
-        for ch in reversed(st.session_state.chamados_abertos):
-            with st.expander(f"🟢 {ch['protocolo']} ({ch['setor']})"):
-                st.write(f"**Solicitante:** {ch['solicitante']}")
-                st.write(f"**Categoria:** {ch['categoria']}")
-                st.write(f"**Urgência:** {ch['prioridade']}")
-                st.caption(f"Criado em {ch['data_hora']}")
-
-    st.divider()
-    st.markdown("### 📚 Base de Conhecimento")
-    top_k_slider = st.slider("Trechos consultados (Top-K)", 1, 5, 2)
-
+    st.markdown("### 📤 Upload Rápido de Manuais")
     arquivos_enviados = st.file_uploader(
-        "Anexar manuais (.txt ou .md)",
+        "Anexar arquivos (.txt ou .md)",
         type=["txt", "md"],
         accept_multiple_files=True
     )
 
     todos_os_chunks = preparar_documentos(DOCUMENTOS_PADRAO, arquivos_enviados)
 
-    if st.button("🗑️ Reiniciar Atendimento", use_container_width=True):
+    st.divider()
+    if st.button("🗑️ Limpar Sessão de Chat", use_container_width=True):
         st.session_state.mensagens = []
+        st.toast("Histórico de conversa reiniciado!", icon="🧹")
         st.rerun()
 
-# --- CABEÇALHO E CARDS DE STATUS ---
+# --- HERO BANNER E KPI CARDS ---
 st.markdown("""
-<div class="hero-banner">
+<div class="saas-header">
     <div>
-        <div class="hero-title">🛡️ Central Inteligente de Suporte de TI</div>
-        <div class="hero-subtitle">Diagnóstico Nível 1 com Persona customizável, busca RAG e escalonamento Nível 2</div>
+        <div class="saas-title">🛡️ Service Desk AI • Central de Suporte Técnico</div>
+        <div class="saas-subtitle">Diagnóstico inteligente com RAG local, persona dinâmica e integração Nível 2 (GLPI)</div>
     </div>
-    <div class="hero-badge">SLA Nível 1 • Ramal 4040</div>
+    <div class="saas-badges">
+        <span class="badge-pill">⚡ SLA Nível 1</span>
+        <span class="badge-pill">📞 Ramal 4040</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-col1, col2, col3, col4, col5 = st.columns(5)
-with col1:
-    status_prov = f"🟢 {provedor_detectado}" if provedor_detectado else "🟡 Aguardando Key"
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Provedor</div><div class="metric-value">{status_prov}</div></div>', unsafe_allow_html=True)
-with col2:
-    status_mod = modelo_selecionado if modelo_selecionado else "Nenhum"
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Modelo IA</div><div class="metric-value">🤖 {status_mod}</div></div>', unsafe_allow_html=True)
-with col3:
+c1, c2, c3, c4, c5 = st.columns(5)
+with c1:
+    status_prov = f"🟢 {provedor_detectado}" if provedor_detectado else "🟡 Sem Chave"
+    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Provedor</div><div class="kpi-value">{status_prov}</div></div>', unsafe_allow_html=True)
+with c2:
+    status_mod = modelo_selecionado if modelo_selecionado else "Aguardando..."
+    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Modelo Ativo</div><div class="kpi-value">🤖 {status_mod}</div></div>', unsafe_allow_html=True)
+with c3:
     nome_curto_persona = perfil_escolhido.split("(")[0].strip()
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Persona Ativa</div><div class="metric-value">{nome_curto_persona}</div></div>', unsafe_allow_html=True)
-with col4:
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Base RAG</div><div class="metric-value">📚 {len(todos_os_chunks)} seções</div></div>', unsafe_allow_html=True)
-with col5:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Persona</div><div class="kpi-value">{nome_curto_persona}</div></div>', unsafe_allow_html=True)
+with c4:
+    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Base RAG</div><div class="kpi-value">📚 {len(todos_os_chunks)} blocos</div></div>', unsafe_allow_html=True)
+with c5:
     qtd_tickets = len(st.session_state.chamados_abertos)
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Chamados</div><div class="metric-value">🎫 {qtd_tickets} aberto(s)</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="kpi-card"><div class="kpi-label">Fila Nível 2</div><div class="kpi-value">🎫 {qtd_tickets} ticket(s)</div></div>', unsafe_allow_html=True)
 
 st.write("")
 
-# --- ATALHOS DE CHAMADOS FREQUENTES ---
-st.markdown("##### ⚡ Dúvidas Rápidas (Clique para testar):")
-atalhos = [
-    "🔑 Esqueci minha senha do Windows",
-    "🌐 Erro 45% ao conectar no FortiClient VPN",
-    "🖨️ Como mapear a impressora do meu setor?",
-    "📶 Qual a senha do Wi-Fi para visitantes?"
-]
+# --- NAVEGAÇÃO PRINCIPAL EM ABAS (st.tabs) ---
+aba_chat, aba_chamados, aba_rag = st.tabs([
+    "💬 Atendimento Inteligente",
+    f"🎫 Fila de Chamados GLPI ({len(st.session_state.chamados_abertos)})",
+    f"📚 Explorador da Base RAG ({len(todos_os_chunks)})"
+])
 
-cols_atalhos = st.columns(4)
-pergunta_atalho = None
-for i, texto_atalho in enumerate(atalhos):
-    if cols_atalhos[i].button(texto_atalho, use_container_width=True):
-        pergunta_atalho = texto_atalho
-
-st.divider()
-
-# --- HISTÓRICO E CHAT ---
-if "mensagens" not in st.session_state:
-    st.session_state.mensagens = [
-        {
-            "role": "assistant",
-            "content": "Olá! Sou o assistente técnico do **Service Desk**. Você pode ajustar minha **Persona e Instruções** na barra lateral a qualquer momento. Como posso ajudar?"
-        }
+# ==========================================================
+# ABA 1: CHAT DE ATENDIMENTO COM PÍLULAS E ST.STATUS
+# ==========================================================
+with aba_chat:
+    opcoes_pilulas = [
+        "🔑 Esqueci minha senha do Windows",
+        "🌐 Erro 45% ao conectar no FortiClient VPN",
+        "🖨️ Como mapear a impressora do meu setor?",
+        "📶 Qual a senha do Wi-Fi para visitantes?",
+        "💻 Como instalar o VS Code ou Power BI?"
     ]
 
-for idx, msg in enumerate(st.session_state.mensagens):
-    avatar = "🧑‍💻" if msg["role"] == "user" else "🛡️"
-    with st.chat_message(msg["role"], avatar=avatar):
-        st.markdown(msg["content"])
+    # Componente st.pills para atalhos rápidos modernos
+    atalho_selecionado = st.pills(
+        "⚡ Atalhos de Incidentes Frequentes:",
+        options=opcoes_pilulas,
+        selection_mode="single",
+        key="pills_atalho"
+    )
 
-        if msg.get("is_ticket") and "dados_chamado" in msg:
-            ch = msg["dados_chamado"]
-            conteudo_txt = (
-                f"=== FICHA DE CHAMADO TÉCNICO (GLPI) ===\n"
-                f"Protocolo: {ch['protocolo']}\n"
-                f"Data/Hora: {ch['data_hora']}\n"
-                f"Solicitante: {ch['solicitante']} | Setor: {ch['setor']}\n"
-                f"Patrimônio: {ch['patrimonio']}\n"
-                f"Categoria: {ch['categoria']} | Prioridade: {ch['prioridade']}\n"
-                f"Status: {ch['status']}\n"
-                f"----------------------------------------\n"
-                f"{ch['descricao']}\n"
-            )
-            st.download_button(
-                label=f"📥 Baixar Ficha do Chamado ({ch['protocolo']}.txt)",
-                data=conteudo_txt,
-                file_name=f"{ch['protocolo']}.txt",
-                mime="text/plain",
-                key=f"dl_{ch['protocolo']}_{idx}"
-            )
+    st.divider()
 
-        if "fontes" in msg:
-            with st.expander("🔍 Fontes da Base de Conhecimento utilizadas nesta resposta"):
-                for f in msg["fontes"]:
-                    pct = int(f["score"] * 100)
-                    st.markdown(
-                        f'<div class="rag-card">'
-                        f'<span class="rag-score">Similaridade: {pct}%</span><br>'
-                        f'{f["trecho"]}'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
+    # Renderização das mensagens do chat
+    for idx, msg in enumerate(st.session_state.mensagens):
+        avatar = "🧑‍💻" if msg["role"] == "user" else "🛡️"
+        with st.chat_message(msg["role"], avatar=avatar):
+            st.markdown(msg["content"])
 
-        if msg.get("avaliavel"):
-            status_res = msg.get("status_resolucao")
-            if status_res == "resolvido":
-                st.success("✅ Problema marcado como resolvido pelo autoatendimento!")
-            elif status_res == "chamado_aberto":
-                st.info(f"🎫 Escalonado para o Suporte Nível 2 sob o protocolo **{msg.get('protocolo_gerado')}**.")
-            else:
-                st.caption("**Isso resolveu o seu problema?**")
-                col_ok, col_ticket, _ = st.columns([1.2, 1.8, 3])
-                if col_ok.button("✅ Sim, resolveu!", key=f"btn_ok_{idx}", use_container_width=True):
-                    st.session_state.mensagens[idx]["status_resolucao"] = "resolvido"
-                    st.rerun()
-                if col_ticket.button("🎫 Não, abrir chamado de TI", key=f"btn_ticket_{idx}", type="primary", use_container_width=True):
-                    modal_abrir_chamado(
-                        indice_msg=idx,
-                        problema_relatado=msg.get("pergunta_origem", "Problema relatado no chat"),
-                        orientacao_ia=msg["content"]
-                    )
-
-# Captura pergunta pelo input do chat ou pelo botão de atalho
-pergunta_chat = st.chat_input("Digite sua dúvida ou cole a mensagem de erro aqui...")
-pergunta_usuario = pergunta_atalho or pergunta_chat
-
-if pergunta_usuario:
-    st.session_state.mensagens.append({"role": "user", "content": pergunta_usuario})
-    with st.chat_message("user", avatar="🧑‍💻"):
-        st.markdown(pergunta_usuario)
-
-    if not api_key or not modelo_selecionado:
-        with st.chat_message("assistant", avatar="🛡️"):
-            st.warning("⚠️ Insira uma **Chave de API válida** no menu lateral esquerdo para liberar o assistente.")
-        st.stop()
-
-    with st.chat_message("assistant", avatar="🛡️"):
-        with st.spinner(f"Respondendo como '{nome_curto_persona}' via {modelo_selecionado}..."):
-            try:
-                fontes_recuperadas = buscar_contexto_local(
-                    pergunta_usuario, todos_os_chunks, top_k=top_k_slider
+            if msg.get("is_ticket") and "dados_chamado" in msg:
+                ch = msg["dados_chamado"]
+                conteudo_txt = (
+                    f"=== FICHA DE CHAMADO TÉCNICO (GLPI) ===\n"
+                    f"Protocolo: {ch['Protocolo']}\n"
+                    f"Data/Hora: {ch['Data/Hora']}\n"
+                    f"Solicitante: {ch['Solicitante']} | Setor: {ch['Setor']}\n"
+                    f"Patrimônio: {ch['Patrimônio']}\n"
+                    f"Categoria: {ch['Categoria']} | Prioridade: {ch['Prioridade']}\n"
+                    f"Status: {ch['Status']}\n"
+                    f"----------------------------------------\n"
+                    f"{ch['Descrição Completa']}\n"
                 )
-                contexto_formatado = "\n\n---\n\n".join([f["trecho"] for f in fontes_recuperadas])
+                st.download_button(
+                    label=f"📥 Baixar Ficha Técnica ({ch['Protocolo']}.txt)",
+                    data=conteudo_txt,
+                    file_name=f"{ch['Protocolo']}.txt",
+                    mime="text/plain",
+                    key=f"dl_chat_{ch['Protocolo']}_{idx}"
+                )
 
-                # Regra de uso estrito ou híbrido do RAG
-                if restringir_ao_rag:
-                    regra_rag = (
-                        "Responda à dúvida do colaborador baseando-se EXCLUSIVAMENTE nos manuais técnicos "
-                        "fornecidos no CONTEXTO abaixo. Se a resposta não estiver no contexto, informe "
-                        "educadamente que o procedimento não consta na base interna e oriente o usuário a clicar "
-                        "no botão 'Não, abrir chamado de TI' logo abaixo da mensagem."
-                    )
+            if "fontes" in msg:
+                with st.expander("🔍 Inspecionar trechos consultados na Base de Conhecimento (RAG)"):
+                    renderizar_fontes_rag(msg["fontes"])
+
+            if msg.get("avaliavel"):
+                status_res = msg.get("status_resolucao")
+                if status_res == "resolvido":
+                    st.success("✅ Incidente resolvido no Primeiro Nível (N1)!")
+                elif status_res == "chamado_aberto":
+                    st.info(f"🎫 Escalonado para o Suporte Nível 2 sob o protocolo **{msg.get('protocolo_gerado')}**.")
                 else:
-                    regra_rag = (
-                        "Priorize as informações fornecidas no CONTEXTO abaixo. Caso o procedimento exato não "
-                        "esteja nos manuais internos, utilize seu conhecimento técnico de TI para sugerir um "
-                        "diagnóstico seguro e lembre o usuário de que ele pode clicar em 'Não, abrir chamado de TI' se precisar."
+                    st.caption("**O procedimento acima resolveu o seu problema?**")
+                    col_ok, col_ticket, _ = st.columns([1.3, 1.9, 3])
+                    if col_ok.button("✅ Sim, resolvido!", key=f"btn_ok_{idx}", use_container_width=True):
+                        st.session_state.mensagens[idx]["status_resolucao"] = "resolvido"
+                        st.toast("Ótimo! Atendimento concluído com sucesso.", icon="🎉")
+                        st.rerun()
+                    if col_ticket.button("🎫 Não, abrir chamado N2", key=f"btn_ticket_{idx}", type="primary", use_container_width=True):
+                        modal_abrir_chamado(
+                            indice_msg=idx,
+                            problema_relatado=msg.get("pergunta_origem", "Problema relatado no chat"),
+                            orientacao_ia=msg["content"]
+                        )
+
+    # Entrada de texto ou disparo por pílula
+    pergunta_input = st.chat_input("Descreva seu problema técnico ou cole o código de erro aqui...")
+
+    # Evita loop infinito ao clicar na pílula
+    if "ultimo_atalho_usado" not in st.session_state:
+        st.session_state.ultimo_atalho_usado = None
+
+    pergunta_ativa = None
+    if pergunta_input:
+        pergunta_ativa = pergunta_input
+    elif atalho_selecionado and atalho_selecionado != st.session_state.ultimo_atalho_usado:
+        st.session_state.ultimo_atalho_usado = atalho_selecionado
+        pergunta_ativa = atalho_selecionado
+
+    if pergunta_ativa:
+        st.session_state.mensagens.append({"role": "user", "content": pergunta_ativa})
+        with st.chat_message("user", avatar="🧑‍💻"):
+            st.markdown(pergunta_ativa)
+
+        if not api_key or not modelo_selecionado:
+            with st.chat_message("assistant", avatar="🛡️"):
+                st.warning("⚠️ Insira uma **Chave de API válida** no menu lateral esquerdo para liberar o assistente.")
+            st.stop()
+
+        with st.chat_message("assistant", avatar="🛡️"):
+            # Componente moderno st.status mostrando as etapas em tempo real
+            with st.status("Processando diagnóstico técnico...", expanded=True) as status_box:
+                try:
+                    st.write("🔎 Vetorizando pergunta e buscando nos manuais de TI (RAG)...")
+                    fontes_recuperadas = buscar_contexto_local(
+                        pergunta_ativa, todos_os_chunks, top_k=top_k_slider
+                    )
+                    contexto_formatado = "\n\n---\n\n".join([f["trecho"] for f in fontes_recuperadas])
+
+                    st.write(f"🎭 Aplicando persona **{nome_curto_persona}**...")
+                    if restringir_ao_rag:
+                        regra_rag = (
+                            "Responda à dúvida do colaborador baseando-se EXCLUSIVAMENTE nos manuais técnicos "
+                            "fornecidos no CONTEXTO abaixo. Se a resposta não estiver no contexto, informe "
+                            "educadamente que o procedimento não consta na base interna e oriente o usuário a clicar "
+                            "no botão 'Não, abrir chamado N2' logo abaixo da mensagem."
+                        )
+                    else:
+                        regra_rag = (
+                            "Priorize as informações fornecidas no CONTEXTO abaixo. Caso o procedimento exato não "
+                            "esteja nos manuais internos, utilize seu conhecimento técnico de TI para sugerir um "
+                            "diagnóstico seguro e lembre o usuário de que ele pode clicar em 'Não, abrir chamado N2' se precisar."
+                        )
+
+                    prompt_sistema = (
+                        f"### SUA PERSONA E INSTRUÇÕES DE COMPORTAMENTO:\n{instrucao_persona}\n\n"
+                        f"### REGRAS DE CONSULTA À BASE:\n{regra_rag}\n\n"
+                        f"### CONTEXTO DOS MANUAIS DE TI:\n{contexto_formatado}"
                     )
 
-                prompt_sistema = (
-                    f"### SUA PERSONA E INSTRUÇÕES DE COMPORTAMENTO:\n{instrucao_persona}\n\n"
-                    f"### REGRAS DE CONSULTA À BASE:\n{regra_rag}\n\n"
-                    f"### CONTEXTO DOS MANUAIS DE TI:\n{contexto_formatado}"
-                )
+                    st.write(f"🤖 Gerando solução com **{modelo_selecionado}** ({provedor_detectado})...")
+                    texto_resposta = gerar_resposta_ia(
+                        provedor=provedor_detectado,
+                        chave=api_key,
+                        modelo_escolhido=modelo_selecionado,
+                        prompt_sistema=prompt_sistema,
+                        pergunta=pergunta_ativa,
+                        temperatura=temperatura_ia
+                    )
 
-                texto_resposta = gerar_resposta_ia(
-                    provedor=provedor_detectado,
-                    chave=api_key,
-                    modelo_escolhido=modelo_selecionado,
-                    prompt_sistema=prompt_sistema,
-                    pergunta=pergunta_usuario,
-                    temperatura=temperatura_ia
-                )
+                    status_box.update(label="✅ Diagnóstico concluído!", state="complete", expanded=False)
 
-                st.session_state.mensagens.append({
-                    "role": "assistant",
-                    "content": texto_resposta,
-                    "fontes": fontes_recuperadas,
-                    "avaliavel": True,
-                    "pergunta_origem": pergunta_usuario,
-                    "status_resolucao": None
-                })
-                st.rerun()
+                    st.session_state.mensagens.append({
+                        "role": "assistant",
+                        "content": texto_resposta,
+                        "fontes": fontes_recuperadas,
+                        "avaliavel": True,
+                        "pergunta_origem": pergunta_ativa,
+                        "status_resolucao": None
+                    })
+                    st.rerun()
 
-            except Exception as e:
-                st.error(f"Erro ao gerar resposta com `{modelo_selecionado}`: {e}")
+                except Exception as e:
+                    status_box.update(label="❌ Falha na comunicação com a API", state="error", expanded=True)
+                    st.error(f"Erro ao gerar resposta com `{modelo_selecionado}`: {e}")
+
+# ==========================================================
+# ABA 2: CENTRAL E TABELA DE CHAMADOS (GLPI)
+# ==========================================================
+with aba_chamados:
+    st.subheader("🎫 Gestão de Chamados Escalonados (Nível 2)")
+    st.caption("Visualize todos os tickets abertos durante a sessão e exporte a planilha para integração com o GLPI.")
+
+    if not st.session_state.chamados_abertos:
+        st.info("Nenhum chamado foi escalonado ainda. Caso o chatbot não resolva uma dúvida na aba de Atendimento, clique em **'🎫 Não, abrir chamado N2'**.")
+    else:
+        df_chamados = pd.DataFrame(st.session_state.chamados_abertos)
+        st.dataframe(
+            df_chamados[["Protocolo", "Data/Hora", "Solicitante", "Setor", "Categoria", "Prioridade", "Patrimônio", "Status"]],
+            use_container_width=True,
+            hide_index=True
+        )
+
+        csv_bytes = df_chamados.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            label="📊 Exportar Fila Completa em CSV (Excel)",
+            data=csv_bytes,
+            file_name=f"chamados_glpi_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            type="primary"
+        )
+
+# ==========================================================
+# ABA 3: EXPLORADOR DA BASE DE CONHECIMENTO (RAG)
+# ==========================================================
+with aba_rag:
+    st.subheader("📚 Explorador da Base de Conhecimento Indexada")
+    st.caption("Pesquise e inspecione os blocos de documentação que o motor TF-IDF utiliza para fundamentar as respostas.")
+
+    termo_filtro = st.text_input("🔍 Filtrar blocos por palavra-chave (ex: VPN, senha, VLAN, SQL, impressora):", "")
+
+    chunks_filtrados = [
+        c for c in todos_os_chunks
+        if termo_filtro.lower() in c.lower()
+    ]
+
+    st.write(f"Exibindo **{len(chunks_filtrados)}** de **{len(todos_os_chunks)}** blocos indexados:")
+
+    for i, texto_bloco in enumerate(chunks_filtrados, 1):
+        primeira_linha = texto_bloco.split("\n")[0][:95]
+        with st.expander(f"📄 Bloco #{i} — {primeira_linha}"):
+            st.code(texto_bloco, language="markdown")
