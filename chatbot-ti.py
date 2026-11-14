@@ -1,15 +1,119 @@
+import os
 import streamlit as st
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Configuração da página
-st.set_page_config(page_title="Helpdesk TI Auto-IA (RAG)", page_icon="⚡", layout="wide")
+# --- CONFIGURAÇÃO DA PÁGINA ---
+st.set_page_config(
+    page_title="Service Desk AI | Suporte Técnico",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-st.title("⚡ Chatbot de Suporte de TI com Detecção Automática de IA")
-st.caption("Insira apenas sua chave de API: o sistema detecta o provedor e lista os modelos disponíveis automaticamente.")
+# --- ESTILIZAÇÃO CSS CUSTOMIZADA ---
+st.markdown("""
+<style>
+    /* Fonte e espaçamento principal */
+    .block-container {
+        padding-top: 1.8rem;
+        padding-bottom: 2rem;
+    }
 
-# Base de conhecimento padrão de TI
+    /* Banner Superior (Hero) */
+    .hero-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #2563eb 100%);
+        padding: 1.8rem 2rem;
+        border-radius: 16px;
+        color: #ffffff;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 25px -5px rgba(30, 58, 138, 0.35);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .hero-title {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin: 0 0 0.35rem 0;
+        letter-spacing: -0.02em;
+    }
+    .hero-subtitle {
+        font-size: 0.95rem;
+        color: #cbd5e1;
+        margin: 0;
+    }
+    .hero-badge {
+        background: rgba(255, 255, 255, 0.14);
+        backdrop-filter: blur(8px);
+        padding: 0.45rem 0.9rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Cards de Métricas / Status */
+    .metric-card {
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 12px;
+        padding: 0.9rem 1.2rem;
+        transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        border-color: #3b82f6;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+    }
+    .metric-value {
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    /* Badges de Relevância do RAG */
+    .rag-card {
+        background: rgba(30, 41, 59, 0.04);
+        border-left: 4px solid #3b82f6;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.6rem;
+        font-size: 0.88rem;
+    }
+    .rag-score {
+        display: inline-block;
+        background: #dbeafe;
+        color: #1e40af;
+        font-weight: 700;
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        margin-bottom: 0.4rem;
+    }
+
+    /* Botões de atalho estilizados */
+    div.stButton > button {
+        border-radius: 10px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    div.stButton > button:hover {
+        border-color: #2563eb;
+        color: #2563eb;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- BASE DE CONHECIMENTO PADRÃO ---
 DOCUMENTOS_PADRAO = [
     {
         "titulo": "Política de Reset de Senha e Active Directory",
@@ -61,31 +165,23 @@ DOCUMENTOS_PADRAO = [
 # --- DETECÇÃO AUTOMÁTICA DE PROVEDOR E LISTAGEM DE MODELOS ---
 @st.cache_data(show_spinner=False)
 def detectar_e_listar_modelos(chave: str):
-    """
-    Identifica o provedor a partir da API Key e consulta o endpoint oficial
-    para retornar apenas os modelos de geração de texto disponíveis na conta.
-    """
     chave = chave.strip()
     if not chave:
         return None, [], None
 
-    # 1. Google Gemini (Chaves começam com AIza)
     if chave.startswith("AIza"):
         try:
             from google import genai
             client = genai.Client(api_key=chave)
-            modelos = []
-            for m in client.models.list():
-                nome = m.name.replace("models/", "")
-                # Filtra modelos de geração de texto (gemini) e ignora embeddings/áudio puro
-                if "gemini" in nome.lower() and "embedding" not in nome.lower():
-                    modelos.append(nome)
+            modelos = [
+                m.name.replace("models/", "") for m in client.models.list()
+                if "gemini" in m.name.lower() and "embedding" not in m.name.lower()
+            ]
             modelos.sort(reverse=True)
             return "Google Gemini", modelos, None
         except Exception as e:
-            return "Google Gemini", [], f"Chave Gemini inválida ou erro de conexão: {e}"
+            return "Google Gemini", [], f"Chave Gemini inválida: {e}"
 
-    # 2. Groq (Chaves começam com gsk_)
     if chave.startswith("gsk_"):
         try:
             from openai import OpenAI
@@ -100,29 +196,24 @@ def detectar_e_listar_modelos(chave: str):
         except Exception as e:
             return "Groq", [], f"Chave Groq inválida: {e}"
 
-    # 3. Anthropic Claude (Chaves começam com sk-ant-)
     if chave.startswith("sk-ant-"):
         try:
             import anthropic
             client = anthropic.Anthropic(api_key=chave)
             lista = client.models.list()
-            modelos = [m.id for m in lista.data]
-            return "Anthropic", modelos, None
+            return "Anthropic", [m.id for m in lista.data], None
         except Exception as e:
             return "Anthropic", [], f"Chave Anthropic inválida: {e}"
 
-    # 4. OpenRouter (Chaves começam com sk-or-)
     if chave.startswith("sk-or-"):
         try:
             from openai import OpenAI
             client = OpenAI(api_key=chave, base_url="https://openrouter.ai/api/v1")
             lista = client.models.list()
-            modelos = [m.id for m in lista.data]
-            return "OpenRouter", modelos, None
+            return "OpenRouter", [m.id for m in lista.data], None
         except Exception as e:
             return "OpenRouter", [], f"Chave OpenRouter inválida: {e}"
 
-    # 5. Chaves genéricas "sk-..." (Testa OpenAI primeiro; se falhar, testa DeepSeek)
     from openai import OpenAI
     try:
         client = OpenAI(api_key=chave)
@@ -141,18 +232,15 @@ def detectar_e_listar_modelos(chave: str):
     try:
         client = OpenAI(api_key=chave, base_url="https://api.deepseek.com/v1")
         lista = client.models.list()
-        modelos = [m.id for m in lista.data]
-        return "DeepSeek", modelos, None
+        return "DeepSeek", [m.id for m in lista.data], None
     except Exception:
         pass
 
-    return None, [], "Não foi possível validar a chave em nenhum provedor (OpenAI, Gemini, Groq, Anthropic, OpenRouter ou DeepSeek)."
-
+    return None, [], "Não foi possível autenticar a chave em nenhum provedor suportado."
 
 # --- CHAMADA UNIVERSAL DE IA ---
 def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunta):
     chave = chave.strip()
-
     if provedor == "Google Gemini":
         from google import genai
         from google.genai import types
@@ -160,10 +248,7 @@ def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunt
         resp = client.models.generate_content(
             model=modelo_escolhido,
             contents=pergunta,
-            config=types.GenerateContentConfig(
-                system_instruction=prompt_sistema,
-                temperature=0.2
-            )
+            config=types.GenerateContentConfig(system_instruction=prompt_sistema, temperature=0.2)
         )
         return resp.text
 
@@ -189,7 +274,6 @@ def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunt
         }
         base_url = urls.get(provedor)
         client = OpenAI(api_key=chave, base_url=base_url) if base_url else OpenAI(api_key=chave)
-
         resp = client.chat.completions.create(
             model=modelo_escolhido,
             temperature=0.2,
@@ -200,19 +284,27 @@ def gerar_resposta_ia(provedor, chave, modelo_escolhido, prompt_sistema, pergunt
         )
         return resp.choices[0].message.content
 
-
 # --- MOTOR RAG LOCAL ---
 def preparar_documentos(docs_padrao, uploads):
-    chunks = [f"[{d['titulo']}]\n{d['conteudo']}" for d in docs_padrao]
+    chunks = []
+    # Carrega automaticamente base_conhecimento_ti.txt se existir na pasta local
+    if os.path.exists("base_conhecimento_ti.txt"):
+        with open("base_conhecimento_ti.txt", "r", encoding="utf-8", errors="ignore") as f:
+            partes = [p.strip() for p in f.read().split("\n\n") if len(p.strip()) > 30]
+            for p in partes:
+                chunks.append(p)
+    else:
+        chunks = [f"[{d['titulo']}]\n{d['conteudo']}" for d in docs_padrao]
+
     if uploads:
         for arq in uploads:
             texto = arq.read().decode("utf-8", errors="ignore")
             partes = [p.strip() for p in texto.split("\n\n") if p.strip()]
             for i, parte in enumerate(partes):
-                chunks.append(f"[Arquivo: {arq.name} - Parte {i+1}]\n{parte}")
+                chunks.append(f"[Arquivo: {arq.name} - Seção {i+1}]\n{parte}")
     return chunks
 
-def buscar_contexto_local(pergunta, lista_textos, top_k=2):
+def buscar_contexto_local(pergunta, lista_textos, top_k=3):
     vetorizador = TfidfVectorizer(ngram_range=(1, 2))
     matriz_docs = vetorizador.fit_transform(lista_textos)
     vetor_pergunta = vetorizador.transform([pergunta])
@@ -225,96 +317,165 @@ def buscar_contexto_local(pergunta, lista_textos, top_k=2):
         for idx in melhores_indices
     ]
 
-
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🔑 Chave de API")
+    st.markdown("### 🛡️ Painel de Controle")
+    st.caption("Configure sua credencial e gerencie os manuais do RAG.")
+
     api_key = st.text_input(
-        "Cole sua API Key de qualquer IA:",
+        "🔑 Chave de API Universal",
         type="password",
-        placeholder="AIza..., sk-..., gsk_..., sk-ant-..."
+        placeholder="Cole sua key (AIza, sk-, gsk_...)"
     )
 
     provedor_detectado = None
     modelo_selecionado = None
 
     if api_key:
-        with st.spinner("Identificando provedor e buscando modelos..."):
+        with st.spinner("Validando credencial..."):
             provedor_detectado, modelos_disponiveis, erro = detectar_e_listar_modelos(api_key)
 
         if erro:
             st.error(erro)
         elif provedor_detectado and modelos_disponiveis:
-            st.success(f"Provedor detectado: **{provedor_detectado}**")
-            modelo_selecionado = st.selectbox(
-                "Selecione a IA disponível:",
-                options=modelos_disponiveis
-            )
-        else:
-            st.warning("Provedor reconhecido, mas nenhum modelo de chat foi retornado para esta chave.")
+            st.success(f"Conectado: **{provedor_detectado}**", icon="✅")
+            modelo_selecionado = st.selectbox("🧠 Modelo Ativo:", options=modelos_disponiveis)
     else:
-        st.info("Insira sua chave acima para carregar automaticamente a lista de IAs disponíveis.")
+        st.info("Cole qualquer API Key acima para liberar os modelos automaticamente.")
 
     st.divider()
-    st.header("📚 Base de Conhecimento (RAG)")
+    st.markdown("### 📚 Base de Conhecimento")
+    top_k_slider = st.slider("Trechos consultados por pergunta (Top-K)", 1, 5, 2)
+
     arquivos_enviados = st.file_uploader(
-        "Adicionar manuais extras (.txt ou .md)",
+        "Anexar manuais (.txt ou .md)",
         type=["txt", "md"],
         accept_multiple_files=True
     )
 
-    with st.expander("Ver manuais padrão integrados"):
-        for doc in DOCUMENTOS_PADRAO:
-            st.markdown(f"**• {doc['titulo']}**")
-            st.caption(doc["conteudo"])
+    todos_os_chunks = preparar_documentos(DOCUMENTOS_PADRAO, arquivos_enviados)
 
-    if st.button("🗑️ Limpar Conversa", use_container_width=True):
+    with st.expander(f"📄 Visualizar Base ({len(todos_os_chunks)} blocos)"):
+        for idx, bloco in enumerate(todos_os_chunks[:15], 1):
+            st.caption(f"**Bloco #{idx}**\n{bloco[:180]}...")
+
+    st.divider()
+    if st.button("🗑️ Reiniciar Atendimento", use_container_width=True):
         st.session_state.mensagens = []
         st.rerun()
 
+# --- CABEÇALHO E CARDS DE STATUS ---
+st.markdown("""
+<div class="hero-banner">
+    <div>
+        <div class="hero-title">🛡️ Central Inteligente de Suporte de TI</div>
+        <div class="hero-subtitle">Diagnóstico rápido baseado nos procedimentos operacionais e políticas internas (RAG)</div>
+    </div>
+    <div class="hero-badge">SLA Nível 1 • Ramal 4040</div>
+</div>
+""", unsafe_allow_html=True)
 
-# --- INTERFACE DE CHAT ---
+col1, col2, col3 = st.columns(3)
+with col1:
+    status_prov = f"🟢 {provedor_detectado}" if provedor_detectado else "🟡 Aguardando Chave"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">Provedor Conectado</div>
+        <div class="metric-value">{status_prov}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    status_mod = modelo_selecionado if modelo_selecionado else "Nenhum selecionado"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">Modelo de IA em Uso</div>
+        <div class="metric-value">🤖 {status_mod}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    origem_kb = "base_conhecimento_ti.txt" if os.path.exists("base_conhecimento_ti.txt") else "Manuais Padrão"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label">Indexação RAG Local</div>
+        <div class="metric-value">📚 {len(todos_os_chunks)} seções ({origem_kb})</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.write("")
+
+# --- ATALHOS DE CHAMADOS FREQUENTES ---
+st.markdown("##### ⚡ Dúvidas Rápidas (Clique para testar):")
+atalhos = [
+    "🔑 Esqueci minha senha do Windows",
+    "🌐 Erro 45% ao conectar no FortiClient VPN",
+    "🖨️ Como mapear a impressora do meu setor?",
+    "📶 Qual a senha do Wi-Fi para visitantes?"
+]
+
+cols_atalhos = st.columns(4)
+pergunta_atalho = None
+for i, texto_atalho in enumerate(atalhos):
+    if cols_atalhos[i].button(texto_atalho, use_container_width=True):
+        pergunta_atalho = texto_atalho
+
+st.divider()
+
+# --- HISTÓRICO E CHAT ---
 if "mensagens" not in st.session_state:
     st.session_state.mensagens = [
         {
             "role": "assistant",
-            "content": "Olá! Cole sua chave de API na barra lateral para carregar os modelos disponíveis e tire suas dúvidas de Suporte de TI."
+            "content": "Olá! Sou o assistente técnico do **Service Desk**. Escolha um dos atalhos acima ou descreva o problema que está enfrentando."
         }
     ]
 
 for msg in st.session_state.mensagens:
-    with st.chat_message(msg["role"]):
+    avatar = "🧑‍💻" if msg["role"] == "user" else "🛡️"
+    with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
         if "fontes" in msg:
-            with st.expander("🔍 Ver documentos consultados pelo RAG"):
+            with st.expander("🔍 Fontes da Base de Conhecimento utilizadas nesta resposta"):
                 for f in msg["fontes"]:
-                    st.markdown(f"**Relevância: `{f['score']:.2f}`**\n```text\n{f['trecho']}\n```")
+                    pct = int(f["score"] * 100)
+                    st.markdown(
+                        f'<div class="rag-card">'
+                        f'<span class="rag-score">Similaridade: {pct}%</span><br>'
+                        f'{f["trecho"]}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
 
-pergunta_usuario = st.chat_input("Descreva seu problema técnico (ex: erro na VPN, reset de senha, impressora)...")
+# Captura pergunta pelo input do chat ou pelo botão de atalho
+pergunta_chat = st.chat_input("Digite sua dúvida ou cole a mensagem de erro aqui...")
+pergunta_usuario = pergunta_atalho or pergunta_chat
 
 if pergunta_usuario:
     st.session_state.mensagens.append({"role": "user", "content": pergunta_usuario})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar="🧑‍💻"):
         st.markdown(pergunta_usuario)
 
     if not api_key or not modelo_selecionado:
-        with st.chat_message("assistant"):
-            st.warning("⚠️ Insira uma **Chave de API válida** na barra lateral para habilitar a lista de IAs antes de perguntar.")
+        with st.chat_message("assistant", avatar="🛡️"):
+            st.warning("⚠️ Insira uma **Chave de API válida** no menu lateral esquerdo para liberar o assistente.")
         st.stop()
 
-    with st.chat_message("assistant"):
-        with st.spinner(f"Consultando manuais e respondendo com {modelo_selecionado} ({provedor_detectado})..."):
+    with st.chat_message("assistant", avatar="🛡️"):
+        with st.spinner(f"Consultando documentação técnica com {modelo_selecionado}..."):
             try:
-                todos_os_chunks = preparar_documentos(DOCUMENTOS_PADRAO, arquivos_enviados)
-                fontes_recuperadas = buscar_contexto_local(pergunta_usuario, todos_os_chunks, top_k=2)
+                fontes_recuperadas = buscar_contexto_local(
+                    pergunta_usuario, todos_os_chunks, top_k=top_k_slider
+                )
                 contexto_formatado = "\n\n---\n\n".join([f["trecho"] for f in fontes_recuperadas])
 
                 prompt_sistema = (
                     "Você é um Analista de Suporte de TI Nível 1 prestativo, claro e objetivo. "
                     "Responda à dúvida do colaborador baseando-se EXCLUSIVAMENTE nos manuais técnicos "
-                    "fornecidos no CONTEXTO abaixo. Se a resposta não estiver no contexto, informe educadamente "
-                    "que o procedimento não consta na base atual e oriente o usuário a abrir um chamado no GLPI "
-                    "ou ligar no ramal 4040.\n\n"
+                    "fornecidos no CONTEXTO abaixo. Use listas numeradas ou marcadores em negrito para "
+                    "facilitar a leitura do passo a passo. Se a resposta não estiver no contexto, informe "
+                    "educadamente que o procedimento não consta na base atual e oriente o usuário a abrir "
+                    "um chamado no GLPI ou ligar no ramal 4040.\n\n"
                     f"CONTEXTO DOS MANUAIS DE TI:\n{contexto_formatado}"
                 )
 
@@ -324,15 +485,24 @@ if pergunta_usuario:
 
                 st.markdown(texto_resposta)
 
-                with st.expander("🔍 Ver documentos consultados pelo RAG"):
+                with st.expander("🔍 Fontes da Base de Conhecimento utilizadas nesta resposta"):
                     for f in fontes_recuperadas:
-                        st.markdown(f"**Relevância: `{f['score']:.2f}`**\n```text\n{f['trecho']}\n```")
+                        pct = int(f["score"] * 100)
+                        st.markdown(
+                            f'<div class="rag-card">'
+                            f'<span class="rag-score">Similaridade: {pct}%</span><br>'
+                            f'{f["trecho"]}'
+                            f'</div>',
+                            unsafe_allow_html=True
+                        )
 
                 st.session_state.mensagens.append({
                     "role": "assistant",
                     "content": texto_resposta,
                     "fontes": fontes_recuperadas
                 })
+                if pergunta_atalho:
+                    st.rerun()
 
             except Exception as e:
-                st.error(f"Erro ao gerar resposta com o modelo `{modelo_selecionado}`: {e}")
+                st.error(f"Erro ao gerar resposta com `{modelo_selecionado}`: {e}")
